@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-premium-50: #f8fafc;
+  --color-premium-100: #f1f5f9;
+  --color-premium-200: #e2e8f0;
+  --color-premium-300: #cbd5e1;
+  --color-premium-400: #94a3b8;
+  --color-premium-500: #64748b;
+  --color-premium-600: #475569;
+  --color-premium-700: #334155;
+  --color-premium-800: #1e293b;
+  --color-premium-900: #0f172a;
+}
+
+@layer base {
+  body {
+    @apply m-0 p-0 overflow-hidden bg-premium-50 text-premium-900 antialiased;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-premium-200 rounded-full;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-premium-300;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
