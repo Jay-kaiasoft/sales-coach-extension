@@ -145,7 +145,6 @@ const App = () => {
       } else if (event.data.type === 'CC_STATUS') {
         setIsCcActive(event.data.active);
       } else if (event.data.type === 'MEETING_END') {
-        console.log("[Q4Magic] Meeting End event received. Generating final summary...");
         // Meeting ended – stop polling and generate final summary
         setIsMeetingActive(false);
         generateFinalSummary();
@@ -172,7 +171,7 @@ const App = () => {
         processTranscript(transcriptHistory, activeQuestions);
         lastProcessedTranscript.current = transcriptHistory;
       }
-    }, 10000);
+    }, 5000);
     return () => clearInterval(intervalRef.current);
   }, [transcriptHistory, isMeetingActive, capturedAnswers]);
 
@@ -300,7 +299,6 @@ const App = () => {
   const generateFinalSummary = async () => {
     if (summaryGeneratedRef.current) return;
     summaryGeneratedRef.current = true;
-    setIsLoading(true);
     try {
       // Final cut: Ensure the transcript is clean of any stray repeats
       const rawTranscript = transcriptRef.current;
@@ -309,35 +307,38 @@ const App = () => {
         .filter((s, i, arr) => s && arr.indexOf(s) === i) // Simple de-duplicate of sentences
         .join(". ");
 
-      const summary = await getMeetingSummary(cleanTranscript, answersRef.current);
-      if (summary) {
-        const processedKeyContacts = Array.isArray(summary.KeyContacts)
-          ? summary.KeyContacts.map(contact => {
-            const cleanName = (contact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
-            const nameParts = cleanName.split(/\s+/);
-            return {
-              ...contact,
-              firstName: nameParts[0] || "",
-              lastName: nameParts.slice(1).join(" ") || "",
-            };
-          })
-          : summary.KeyContacts;
+      if (cleanTranscript && answersRef.current) {
+        setIsLoading(true);
+        const summary = await getMeetingSummary(cleanTranscript, answersRef.current);
+        if (summary) {
+          const processedKeyContacts = Array.isArray(summary.KeyContacts)
+            ? summary.KeyContacts.map(contact => {
+              const cleanName = (contact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
+              const nameParts = cleanName.split(/\s+/);
+              return {
+                ...contact,
+                firstName: nameParts[0] || "",
+                lastName: nameParts.slice(1).join(" ") || "",
+              };
+            })
+            : summary.KeyContacts;
 
-        let finalSummaryData = {
-          ...summary,
-          Why_Do_Anything: `<p>${summary.Why_Do_Anything || ""}</p>`,
-          BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
-          KeyContacts: processedKeyContacts,
-          opportunityId: opportunityRef.current?.id,
-          customerId: customerIdRef.current,
-          cleanTranscript: cleanTranscript
-        }
-        setFinalSummary(finalSummaryData);
-        setTips([]);
-        if (opportunityRef.current?.id && customerIdRef.current) {
-          const response = await updateOpportunityData(finalSummaryData)
-          if (response.data.status !== 200) {
-            console.log("Failed to update opportunity data:", response.data.message);
+          let finalSummaryData = {
+            ...summary,
+            Why_Do_Anything: `<p>${summary.Why_Do_Anything || ""}</p>`,
+            BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
+            KeyContacts: processedKeyContacts,
+            opportunityId: opportunityRef.current?.id,
+            customerId: customerIdRef.current,
+            cleanTranscript: cleanTranscript
+          }
+          setFinalSummary(finalSummaryData);
+          setTips([]);
+          if (opportunityRef.current?.id && customerIdRef.current) {
+            const response = await updateOpportunityData(finalSummaryData)
+            if (response.data.status !== 200) {
+              console.log("Failed to update opportunity data:", response.data.message);
+            }
           }
         }
       }
@@ -522,7 +523,7 @@ const App = () => {
 
                   {/* Coaching Insights Section */}
                   <section className="flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar pr-2">
-                    {(!isMeetingActive && !finalSummary) && (
+                    {(!isMeetingActive && finalSummary === null) && (
                       <div className="mb-6 p-4 bg-premium-100/50 rounded-xl border border-premium-200 animate-pulse">
                         <p className="text-[10px] font-bold text-premium-600 uppercase tracking-widest text-center">Preparing Final Meeting Summary...</p>
                       </div>
@@ -531,7 +532,7 @@ const App = () => {
                     {(!isMeetingActive && finalSummary) && (
                       <div className="mb-8 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="p-5 bg-white rounded-2xl border border-premium-100 shadow-xl relative overflow-hidden group">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-indigo-600"></div>
+                          <div className="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-blue-500 to-indigo-600"></div>
                           <h3 className="text-[10px] font-black text-premium-900 uppercase tracking-[0.2em] mb-4 flex items-center">
                             <span className="mr-2">📊</span> Meeting Summary
                           </h3>

@@ -5,6 +5,7 @@
 const DETECTION_PATTERNS = {
   MEET: 'meet.google.com',
   TEAMS: 'teams.cloud.microsoft',
+  TEAMS_LIVE: 'teams.live.com',
   WEBEX: 'webex.com'
 };
 
@@ -18,7 +19,7 @@ let meetingWasActive = false;
 function detectPlatform() {
   const host = window.location.hostname;
   if (host.includes(DETECTION_PATTERNS.MEET)) return 'MEET';
-  if (host.includes(DETECTION_PATTERNS.TEAMS)) return 'TEAMS';
+  if (host.includes(DETECTION_PATTERNS.TEAMS) || host.includes(DETECTION_PATTERNS.TEAMS_LIVE)) return 'TEAMS';
   if (host.includes(DETECTION_PATTERNS.WEBEX)) return 'WEBEX';
   return null;
 }
@@ -42,7 +43,11 @@ function isMeetingPage() {
   }
 
   if (platform === 'TEAMS') {
-    return path.includes('meetup-join') || path.includes('/modern-stage/');
+    const isMeetingPath = path.includes('meetup-join') || path.includes('/modern-stage/') || path.includes('/v2/meet/') || path.includes('/meet/');
+    if (isMeetingPath) return true;
+
+    // Fallback: if we are on '/v2/', check if an active call is running (Leave button is present)
+    return !!findLeaveButton();
   }
   if (platform === 'WEBEX') {
     return path.includes('/meet/') || path.includes('/join/');
@@ -169,30 +174,50 @@ function removeSidebar() {
 
 // --- ROBUST DETECTION HELPERS ---
 function findCCButton() {
-  if (currentPlatform !== 'MEET') return null;
-  const byJsName = document.querySelector('button[jsname="IBm91c"]');
-  if (byJsName) return byJsName;
-  const buttons = document.querySelectorAll('button[aria-label]');
-  for (const btn of buttons) {
-    const label = (btn.getAttribute('aria-label') || "").toLowerCase();
-    if (label.includes('caption') || label.includes('subtitle') || label.includes('closed caption')) {
-      return btn;
+  if (currentPlatform === 'MEET') {
+    const byJsName = document.querySelector('button[jsname="IBm91c"]');
+    if (byJsName) return byJsName;
+    const buttons = document.querySelectorAll('button[aria-label]');
+    for (const btn of buttons) {
+      const label = (btn.getAttribute('aria-label') || "").toLowerCase();
+      if (label.includes('caption') || label.includes('subtitle') || label.includes('closed caption')) {
+        return btn;
+      }
+    }
+  } else if (currentPlatform === 'TEAMS') {
+    const buttons = document.querySelectorAll('button[aria-label]');
+    for (const btn of buttons) {
+      const label = (btn.getAttribute('aria-label') || "").toLowerCase();
+      if (label.includes('caption') || label.includes('subtitle') || label.includes('closed caption') || label.includes('turn on live captions')) {
+        return btn;
+      }
     }
   }
   return null;
 }
 
 function findCaptionText() {
-  if (currentPlatform !== 'MEET') return "";
-  const preciseSelectors = [
-    '[aria-label="Captions"] .ygicle',
-    '.ygicle.VbkSUe',
-    '.ygicle',
-    '.VbkSUe'
-  ];
-  const preciseNodes = document.querySelectorAll(preciseSelectors.join(', '));
-  if (preciseNodes.length > 0) {
-    return Array.from(preciseNodes).map(n => n.innerText).join(" ");
+  if (currentPlatform === 'MEET') {
+    const preciseSelectors = [
+      '[aria-label="Captions"] .ygicle',
+      '.ygicle.VbkSUe',
+      '.ygicle',
+      '.VbkSUe'
+    ];
+    const preciseNodes = document.querySelectorAll(preciseSelectors.join(', '));
+    if (preciseNodes.length > 0) {
+      return Array.from(preciseNodes).map(n => n.innerText).join(" ");
+    }
+  } else if (currentPlatform === 'TEAMS') {
+    const preciseSelectors = [
+      '[data-tid="closed-caption-text"]',
+      '[data-tid*="closed-caption-text"]',
+      '.closed-caption-text'
+    ];
+    const preciseNodes = document.querySelectorAll(preciseSelectors.join(', '));
+    if (preciseNodes.length > 0) {
+      return Array.from(preciseNodes).map(n => n.innerText).join(" ");
+    }
   }
   return "";
 }
@@ -207,7 +232,7 @@ function startScraping() {
 
   scrapingObserver = new MutationObserver(() => {
     let newText = "";
-    if (currentPlatform === 'MEET') {
+    if (currentPlatform === 'MEET' || currentPlatform === 'TEAMS') {
       newText = findCaptionText();
     }
     if (newText && newText !== lastCaptionText) {
@@ -235,6 +260,10 @@ function checkCaptionsStatus() {
       const ccButton = findCCButton();
       const ccRegion = document.querySelector('[aria-label="Captions"], .vNKgIf, .UDinHf');
       ccActive = (ccButton && ccButton.getAttribute('aria-pressed') === 'true') || !!ccRegion;
+    } else if (currentPlatform === 'TEAMS') {
+      const ccButton = findCCButton();
+      const ccRegion = document.querySelector('[data-tid="closed-caption-renderer-wrapper"], [data-tid="closed-caption-v2-virtual-list-content"]');
+      ccActive = (ccButton && (ccButton.getAttribute('aria-pressed') === 'true' || ccButton.getAttribute('aria-checked') === 'true')) || !!ccRegion;
     }
   }
   if (sidebarRoot && sidebarRoot.contentWindow) {
@@ -266,6 +295,17 @@ function findLeaveButton() {
   if (currentPlatform === 'MEET') {
     // Red "Leave call" button in Google Meet
     return document.querySelector('button[aria-label="Leave call"], [jsname="CQm7mc"]');
+  } else if (currentPlatform === 'TEAMS') {
+    // Leave button in Teams: usually has aria-label containing "leave" or "hang up" or id "hangup-button"
+    const leaveBtn = document.querySelector('button[aria-label*="Leave"], button[aria-label*="leave"], button[id*="hangup"], button[data-tid*="hangup"]');
+    if (leaveBtn) return leaveBtn;
+    const buttons = document.querySelectorAll('button');
+    for (const btn of buttons) {
+      const label = (btn.getAttribute('aria-label') || "").toLowerCase();
+      if (label.includes('leave') || label.includes('hang up') || label.includes('hangup')) {
+        return btn;
+      }
+    }
   }
   return null;
 }
@@ -293,8 +333,8 @@ function attachLeaveListener() {
 function monitorMeetingState() {
   if (shouldNeverShowAgain) return;
 
-  const inMeeting = isMeetingPage();
   currentPlatform = detectPlatform();
+  const inMeeting = isMeetingPage();
 
   // Send meeting end signal when transitioning from true to false
   if (meetingWasActive && !inMeeting) {
