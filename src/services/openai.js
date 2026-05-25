@@ -7,37 +7,49 @@ const openai = new OpenAI({
 });
 
 export const Why_Do_Anything_Questions = [
-  "What are the reasons you’re looking to do anything?",
-  "What do you envision as the ideal solution?",
-  "What happens if you don’t improve?"
+  "What’s driving the urgency to solve this now?",
+  "Why has this become a priority now?",
+  "What happens if this problem is not addressed?"
 ];
 
 export const BusinessValue_Questions = [
-  "How will you measure success (are there key metrics such as saving time, money etc. that will be impacted)?",
-  "Have you calculated an ROI?",
-  "What prompted you to look at our solution? Is there any particular area we stand out from the competition?"
+  "If this were solved, what measurable improvement would you expect?",
+  "How much time, revenue, or productivity is being impacted today?",
+  "What business metrics are you hoping to improve?"
 ];
 
 export const KeyContacts_Questions = [
-  "Who are the participants and what are their titles/roles?",
-  "Who else needs to be involved in making this decision?",
-  "Who will champion this project internally?",
-  "Who is your economic buyer?",
-  "Who will make the final decision?"
+  "Who is most motivated to solve this problem?",
+  "Who would champion this internally?",
+  "Who ultimately approves initiatives like this?"  
+];
+
+export const DECISIONMAP_Questions = [
+  "If we mapped out the path to a final decision, what steps would need to happen and who would be involved?",
+  "What are the most important evaluation criteria?",
+  "What does the approval process look like?",
+  "What internal procurement, legal, or security steps should we plan for?"
+];
+
+export const CURRENTENVIRONMENT_Questions = [
+  "What does the current process look like?",
+  "What other solutions are being considered?",
+  "What concerns or risks do you see with moving forward?"  
 ];
 
 export const NextSteps_Questions = [
-  "What are the next steps?",
-  "When do you expect a decision to be made?",
-  "What is the timeline for implementation?",
-  "What are the next steps for us to move forward?"
+  "What would make sense as a next step from here?",
+  "What additional information would be helpful for your team?",
+  "Who should be involved in the next conversation?"  
 ];
 
 export const ALL_QUESTIONS = [
   ...Why_Do_Anything_Questions,
   ...BusinessValue_Questions,
   ...KeyContacts_Questions,
-  ...NextSteps_Questions
+  ...NextSteps_Questions,
+  ...DECISIONMAP_Questions,
+  ...CURRENTENVIRONMENT_Questions
 ];
 
 // Updated to accept a custom list of questions to track
@@ -120,7 +132,9 @@ Structured output required:
       "title": "Title/Role (Champion, Economic Buyer, etc.)"
     }
   ],
-  "NextSteps": "Summarize agreed next steps, decision timeline, and implementation plan."
+  "NextSteps": "Summarize agreed next steps, decision timeline, and implementation plan.",
+  "DecisionMap": "Summarize the decision process, timeline, procurement, security or legal steps and evaluation criteria.",
+  "CurrentEnvironment": "Summarize the customer's current environment, process, tech stack, and any alternative solutions or competitors considered."
 }
 
 If a category has no information, set its value to null.

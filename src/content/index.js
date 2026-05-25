@@ -68,7 +68,7 @@ function injectSidebar() {
   container.style.position = 'fixed';
   container.style.right = '0';
   container.style.top = '0';
-  container.style.width = '350px';
+  container.style.width = '450px';
   container.style.height = '100vh';
   container.style.zIndex = '999999';
   container.style.backgroundColor = 'white';
@@ -90,7 +90,7 @@ function injectSidebar() {
   // Listen for messages from the iframe
   window.addEventListener('message', (event) => {
     if (event.data.type === 'SET_COLLAPSED') {
-      container.style.width = event.data.collapsed ? '48px' : '350px';
+      container.style.width = event.data.collapsed ? '48px' : '450px';
     } else if (event.data.type === 'CLOSE_SIDEBAR') {
       console.log("[Q4Magic] Manual close requested. Removing sidebar permanently.");
       shouldNeverShowAgain = true;
