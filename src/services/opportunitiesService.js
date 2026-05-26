@@ -1,9 +1,12 @@
 import axios from "axios";
+import { getCookie } from "../utils/cookieHelper";
 import { opportunityURL } from "../config/config";
 
 export const getOpportunitiesByCustomerId = async (customerId) => {
     try {
-        const response = await axios.get(`${opportunityURL}/get/all/options?id=${customerId}`);
+        const token = await getCookie('sales-coach-extension-token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${opportunityURL}/get/all/options?id=${customerId}`, { headers });
         return response;
     } catch (error) {
         console.error("Error fetching opportunities:", error);
@@ -12,12 +15,15 @@ export const getOpportunitiesByCustomerId = async (customerId) => {
 };
 
 export const updateOpportunityData = async (data) => {
+    const token = await getCookie('sales-coach-extension-token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
             type: 'FETCH_PROXY',
             url: `${opportunityURL}/updateOpportunityData`,
             method: 'POST',
-            data: data
+            data: data,
+            headers: headers
         }, (response) => {
             if (response && response.success) {
                 resolve({ data: response.data });
@@ -30,12 +36,15 @@ export const updateOpportunityData = async (data) => {
 };
 
 export const createOpportunityData = async (data) => {
+    const token = await getCookie('sales-coach-extension-token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
             type: 'FETCH_PROXY',
             url: `${opportunityURL}/createOpportunityData`,
             method: 'POST',
-            data: data
+            data: data,
+            headers: headers
         }, (response) => {
             if (response && response.success) {
                 resolve({ data: response.data });

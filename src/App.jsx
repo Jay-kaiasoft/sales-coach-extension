@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Autocomplete, TextField, Typography, Button } from '@mui/material';
+import { getCookie } from './utils/cookieHelper';
+import Login from './components/Login';
 import CoachTips from './components/CoachTips';
 import CaptionWarning from './components/CaptionWarning';
 import { googleMeetService } from './services/googleMeet';
@@ -150,6 +152,20 @@ const renderStageIcon = (key) => {
 };
 
 const App = () => {
+  const [token, setToken] = useState(undefined);
+  const [userInfo, setUserInfo] = useState(null);
+  const [isCookieChecked, setIsCookieChecked] = useState(false);
+
+  const getInitialCustomerId = () => {
+    if (userInfo && userInfo.userId) {
+      return userInfo.userId;
+    }
+    return 23;
+  };
+
+  const userName = userInfo?.name || "";
+  const userEmail = userInfo?.email || "";
+
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Kolkata" ? "Asia/Calcutta" : Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [tips, setTips] = useState([]);
   const [isCcActive, setIsCcActive] = useState(false);
@@ -160,7 +176,7 @@ const App = () => {
   const [capturedAnswers, setCapturedAnswers] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMeetingActive, setIsMeetingActive] = useState(true);
-  
+
   // MEDDIC States
   const [activeCategoryKey, setActiveCategoryKey] = useState('BusinessValue');
   const [expandedQuestion, setExpandedQuestion] = useState(null);
@@ -169,7 +185,7 @@ const App = () => {
   const [finalSummary, setFinalSummary] = useState(null);
   const [meetingCode, setMeetingCode] = useState(null);
   const [participants, setParticipants] = useState(null);
-  const [customerId, setCustomerId] = useState(23);
+  const [customerId, setCustomerId] = useState(getInitialCustomerId());
   const [opportunitys, setOpportunitys] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [newOppName, setNewOppName] = useState('');
@@ -180,8 +196,45 @@ const App = () => {
   const transcriptRef = useRef("");
   const answersRef = useRef({});
   const opportunityRef = useRef(null);
-  const customerIdRef = useRef(23);
+  const customerIdRef = useRef(getInitialCustomerId());
   const summaryGeneratedRef = useRef(false);
+  const keyContactsBackupRef = useRef([]);
+  const isGeneratingSummaryRef = useRef(false);
+
+  useEffect(() => {
+    const checkCookie = async () => {
+      const tokenVal = await getCookie('sales-coach-extension-token');
+      const userVal = await getCookie('sales-coach-extension-user-info');
+      
+      let parsedUser = null;
+      if (userVal) {
+        try {
+          parsedUser = JSON.parse(userVal);
+        } catch (e) {
+          console.error("Failed to parse user info cookie:", e);
+        }
+      }
+      
+      if (!tokenVal || !parsedUser) {
+        localStorage.removeItem("userInfo");
+        setToken(null);
+        setUserInfo(null);
+      } else {
+        setToken(tokenVal);
+        setUserInfo(parsedUser);
+      }
+      
+      setIsCookieChecked(true);
+    };
+    checkCookie();
+  }, []);
+
+  useEffect(() => {
+    if (userInfo && userInfo.userId) {
+      setCustomerId(userInfo.userId);
+      customerIdRef.current = userInfo.userId;
+    }
+  }, [userInfo]);
 
   // Keep refs in sync with state for use in stale closures (like event listeners)
   useEffect(() => {
@@ -272,75 +325,38 @@ const App = () => {
       // if (transcriptHistory.trim() &&
       //   transcriptHistory !== lastProcessedTranscript.current &&
       //   activeQuestions.length > 0) {
-      if (transcriptHistory.trim() &&
-        transcriptHistory !== lastProcessedTranscript.current) {
-        processTranscript(transcriptHistory, activeQuestions);
-        lastProcessedTranscript.current = transcriptHistory;
+      const cleanTranscript = transcriptHistory?.split(/[.!?]+\s+/)
+        .map(s => s.trim())
+        .filter((s, i, arr) => s && arr.indexOf(s) === i) // Simple de-duplicate of sentences
+        .join(". ");
+
+      if (cleanTranscript.trim()) {
+        processTranscript(cleanTranscript, activeQuestions);
+        lastProcessedTranscript.current = cleanTranscript;
       }
-    }, 5000);
+    }, 10000);
     return () => clearInterval(intervalRef.current);
   }, [transcriptHistory, isMeetingActive, capturedAnswers]);
-
-  // // Polling for participants until found
-  // useEffect(() => {
-  //   if (!isMeetingActive || !meetingCode || participants !== null) return;
-
-  //   const logParticipants = async () => {
-  //     setIsLoadingInfo(true)
-  //     setCustomerId(23);
-  //     const oppData = await getOpportunitiesByCustomerId(23);
-  //     if (oppData?.data?.result?.status === 200) {
-  //       setOpportunitys(oppData?.data?.result[0]?.opportunitiesNameOptions)
-  //       setIsLoadingInfo(false)
-  //     } else {
-  //       setIsLoadingInfo(false)
-  //     }
-  //     // const participantsList = await googleMeetService.fetchParticipants(meetingCode);
-  //     // if (participantsList && participantsList.length > 0) {
-  //     //   setIsLoadingInfo(true)
-  //     //   setParticipants(participantsList[0]);
-  //     //   const res = await getCustomerByEmail(participantsList[0].email)
-  //     //   if (res?.data?.status === 200) {
-  //     //     if (res?.data?.result?.id) {
-  //     //       setCustomerId(res?.data?.result?.id);
-  //     //       const oppData = await getOpportunitiesByCustomerId(res?.data?.result?.id);
-  //     //       setOpportunitys(oppData.data.result[0]?.opportunitiesNameOptions)
-  //     //       setIsLoadingInfo(false)
-  //     //     } else {
-  //     //       setCustomerId(undefined);
-  //     //       window.parent.postMessage({
-  //     //         type: 'SHOW_REG_MODAL',
-  //     //         email: participantsList[0].email
-  //     //       }, '*');
-  //     //       setIsLoadingInfo(false)
-  //     //     }
-  //     //   }
-  //     // }
-  //   };
-
-  //   logParticipants();
-  //   const pInterval = setInterval(logParticipants, 60000);
-  //   return () => clearInterval(pInterval);
-  // }, [meetingCode, isMeetingActive, participants]);
 
   // Polling for participants until found
   useEffect(() => {
     const logParticipants = async () => {
-      setIsLoadingInfo(true)
-      setCustomerId(23);
-      const oppData = await getOpportunitiesByCustomerId(23);
+      const currentId = getInitialCustomerId();
+      setIsLoadingInfo(true);
+      setCustomerId(currentId);
+      const oppData = await getOpportunitiesByCustomerId(currentId);
       if (oppData?.data.status === 200) {
-        setOpportunitys(oppData?.data?.result[0]?.opportunitiesNameOptions)
-        setIsLoadingInfo(false)
+        setOpportunitys(oppData?.data?.result[0]?.opportunitiesNameOptions);
+        setIsLoadingInfo(false);
       } else {
-        setIsLoadingInfo(false)
+        setIsLoadingInfo(false);
       }
     };
 
-    if (isMeetingActive) {
+    if (isMeetingActive && token) {
       logParticipants();
     }
-  }, [isMeetingActive]);
+  }, [isMeetingActive, token]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -373,7 +389,7 @@ const App = () => {
   };
 
   const processTranscript = async (text, activeQuestions) => {
-    // if (activeQuestions.length === 0) return;
+    if (activeQuestions.length === 0) return;
     setIsLoading(true);
     try {
       const result = await getSalesCoaching(text);
@@ -381,7 +397,7 @@ const App = () => {
         if (result.coaching) {
           setTips(prev => [...prev, result.coaching]);
         }
-        if (result.extracted_answers && result.extracted_answers.length > 0) {
+        if (result.extracted_answers && result?.extracted_answers?.length > 0) {
           setCapturedAnswers(prev => {
             const next = { ...prev };
             result.extracted_answers.forEach(item => {
@@ -403,8 +419,8 @@ const App = () => {
   };
 
   const generateFinalSummary = async () => {
-    if (summaryGeneratedRef.current) return;
-    summaryGeneratedRef.current = true;
+    // if (isGeneratingSummaryRef.current) return;
+    // isGeneratingSummaryRef.current = true;
     try {
       // Final cut: Ensure the transcript is clean of any stray repeats
       const rawTranscript = transcriptRef.current;
@@ -417,24 +433,41 @@ const App = () => {
         setIsLoading(true);
         const summary = await getMeetingSummary(cleanTranscript, answersRef.current);
         if (summary) {
-          const processedKeyContacts = Array.isArray(summary.KeyContacts)
-            ? summary.KeyContacts.map(contact => {
+          let processedKeyContacts = [];
+          if (Array.isArray(summary.KeyContacts)) {
+            summary?.KeyContacts?.forEach(contact => {
               const cleanName = (contact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
-              const nameParts = cleanName.split(/\s+/);
-              return {
-                ...contact,
-                firstName: nameParts[0] || "",
-                lastName: nameParts.slice(1).join(" ") || "",
-              };
-            })
-            : summary.KeyContacts;
+              const cleanTitle = (contact.title || "").trim();
+              
+              // Check if contact with same name and title already exists in the backup
+              const isDuplicate = keyContactsBackupRef?.current?.some(backupContact => {
+                const backupCleanName = (backupContact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
+                const backupCleanTitle = (backupContact.title || "").trim();
+                return backupCleanName.toLowerCase() === cleanName.toLowerCase() && 
+                       backupCleanTitle.toLowerCase() === cleanTitle.toLowerCase();
+              });
+              
+              if (!isDuplicate) {
+                const nameParts = cleanName.split(/\s+/);
+                processedKeyContacts.push({
+                  ...contact,
+                  firstName: nameParts[0] || "",
+                  lastName: nameParts.slice(1).join(" ") || "",
+                });
+                // Store in backup copy
+                keyContactsBackupRef.current.push(contact);
+              }
+            });
+          } else {
+            processedKeyContacts = summary?.KeyContacts;
+          }
 
           let finalSummaryData = {
             ...summary,
-            Why_Do_Anything: `<p>${summary.Why_Do_Anything || ""}</p>`,
+            Why_Do_Anything: `<p>${summary?.Why_Do_Anything || ""}</p>`,
             BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
-            DecisionMap: `<p>${summary.DecisionMap || ""}</p>`,
-            CurrentEnvironment: `<p>${summary.CurrentEnvironment || ""}</p>`,
+            DecisionMap: `${summary.DecisionMap || ""}`,
+            CurrentEnvironment: `${summary.CurrentEnvironment || ""}`,
             KeyContacts: processedKeyContacts,
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
@@ -453,9 +486,22 @@ const App = () => {
     } catch (err) {
       console.error("Final summary failed:", err);
     } finally {
+      isGeneratingSummaryRef.current = false;
       setIsLoading(false);
     }
   };
+  if (!isCookieChecked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <Login onLoginSuccess={(newToken, newUserData) => { setToken(newToken); setUserInfo(newUserData); }} />;
+  }
+
   if (isCollapsed) {
     return (
       <div className="h-screen w-full bg-premium-900 flex flex-col items-center py-6 cursor-pointer hover:bg-premium-800 transition-colors" onClick={() => setIsCollapsed(false)}>
@@ -478,10 +524,16 @@ const App = () => {
         {/* Premium Header */}
         <header className="px-6 py-4 bg-white border-b border-premium-100 flex items-center justify-between shadow-sm z-10">
           <div className="flex-1">
-              <img src="/images/logo/360Pipe_logo.png" alt="360Pipe Logo" className="h-7" />
+            <img src="/images/logo/360Pipe_logo.png" alt="360Pipe Logo" className="h-7" />
           </div>
 
           <div className="flex items-center space-x-3">
+            {userInfo && (
+              <div className="flex flex-col items-end mr-2 text-right">
+                <span className="text-[10.5px] font-bold text-premium-800 leading-tight">{userName || userInfo.username}</span>
+                <span className="text-[9px] font-medium text-premium-400 leading-tight">{userEmail}</span>
+              </div>
+            )}
             {!isMeetingActive && (
               <>
                 <button
@@ -600,7 +652,7 @@ const App = () => {
                   {isMeetingActive && (
                     <section className="bg-white rounded-2xl border border-premium-100 shadow-sm">
                       {/* Section Header */}
-                      <div 
+                      <div
                         className="px-5 py-4 flex items-center justify-between border-b border-premium-50 bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
                         onClick={() => setIsMeddicCollapsed(prev => !prev)}
                       >
@@ -608,7 +660,7 @@ const App = () => {
                           <h2 className="text-xs font-black text-premium-900 uppercase tracking-wider flex items-center">
                             MEDDIC Qualification
                           </h2>
-                          <div 
+                          <div
                             className="text-premium-400 hover:text-premium-600 transition-colors cursor-pointer flex items-center"
                             title="MEDDIC is a sales qualification framework focused on Metrics, Economic Buyer, Decision Process, Decision Criteria, Identify Pain, and Competition."
                             onClick={(e) => e.stopPropagation()}
@@ -633,11 +685,11 @@ const App = () => {
                           <div className="relative flex items-center justify-between w-full px-2 py-4">
                             {/* Dash Connector Line */}
                             <div className="absolute top-1/2 left-4 right-4 h-0.5 border-t border-dashed border-slate-200 -translate-y-1/2 z-0"></div>
-                            
+
                             {MEDDIC_STAGES.map((stage) => {
                               const { answeredCount, totalCount, isCompleted } = getCategoryStatus(stage);
                               const isActive = activeCategoryKey === stage.key;
-                              
+
                               let buttonClass = "";
                               if (isActive) {
                                 buttonClass = "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 scale-110";
@@ -659,7 +711,7 @@ const App = () => {
                                   className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full font-black text-sm border-2 transition-all duration-200 cursor-pointer ${buttonClass}`}
                                 >
                                   {stage.letter}
-                                  
+
                                   {/* Small badge for completion / progress */}
                                   {isCompleted && (
                                     <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white border border-white font-bold">
@@ -703,17 +755,16 @@ const App = () => {
                                       <h3 className="text-xs font-black text-premium-900">
                                         {indexPrefix}. {activeStage.title}
                                       </h3>
-                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                                        isCompleted 
-                                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                                          : answeredCount > 0 
-                                            ? 'bg-amber-50 text-amber-600 border border-amber-100' 
+                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isCompleted
+                                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                          : answeredCount > 0
+                                            ? 'bg-amber-50 text-amber-600 border border-amber-100'
                                             : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                                      }`}>
-                                        {isCompleted 
-                                          ? 'Completed' 
-                                          : answeredCount > 0 
-                                            ? `In Progress (${answeredCount}/${totalCount})` 
+                                        }`}>
+                                        {isCompleted
+                                          ? 'Completed'
+                                          : answeredCount > 0
+                                            ? `In Progress (${answeredCount}/${totalCount})`
                                             : 'Active'}
                                       </span>
                                     </div>
@@ -728,7 +779,7 @@ const App = () => {
                                   <h4 className="text-[9px] font-black text-premium-400 uppercase tracking-widest">
                                     TOP QUESTIONS
                                   </h4>
-                                  
+
                                   <div className="space-y-2.5">
                                     {activeStage.questions.map((question, qIdx) => {
                                       const answer = capturedAnswers[question];
@@ -736,32 +787,29 @@ const App = () => {
                                       const isExpanded = expandedQuestion === question;
 
                                       return (
-                                        <div 
+                                        <div
                                           key={qIdx}
-                                          className={`rounded-xl border transition-all duration-200 overflow-hidden ${
-                                            isExpanded 
-                                              ? 'border-indigo-100 bg-indigo-50/10 shadow-xs' 
-                                              : isAnswered 
-                                                ? 'border-emerald-100 bg-emerald-50/5 hover:border-emerald-200' 
+                                          className={`rounded-xl border transition-all duration-200 overflow-hidden ${isExpanded
+                                              ? 'border-indigo-100 bg-indigo-50/10 shadow-xs'
+                                              : isAnswered
+                                                ? 'border-emerald-100 bg-emerald-50/5 hover:border-emerald-200'
                                                 : 'border-slate-100 bg-white hover:border-slate-200'
-                                          }`}
+                                            }`}
                                         >
                                           {/* Question Row */}
-                                          <div 
+                                          <div
                                             onClick={() => setExpandedQuestion(prev => prev === question ? null : question)}
                                             className="p-3.5 flex items-center justify-between cursor-pointer select-none"
                                           >
                                             <div className="flex items-center space-x-3 pr-4">
-                                              <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${
-                                                isAnswered 
-                                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                                              <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
+                                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
                                                   : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
-                                              }`}>
+                                                }`}>
                                                 {qIdx + 1}
                                               </div>
-                                              <p className={`text-xs font-semibold leading-relaxed ${
-                                                isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
-                                              }`}>
+                                              <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
+                                                }`}>
                                                 {question}
                                               </p>
                                             </div>
@@ -777,7 +825,7 @@ const App = () => {
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                 </svg>
                                               )}
-                                              
+
                                               {/* Chevron */}
                                               <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-slate-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -819,7 +867,7 @@ const App = () => {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                                     </svg>
                                   </div>
-                                  
+
                                   <div className="flex items-center space-x-2 mb-2">
                                     <span className="text-sm">✨</span>
                                     <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">

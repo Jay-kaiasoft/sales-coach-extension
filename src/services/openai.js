@@ -121,24 +121,27 @@ export async function getMeetingSummary(fullTranscript, capturedAnswers) {
   const systemPrompt = `
 You are an expert Sales Coach. Given the full meeting transcript and the answers already captured during the conversation, produce a final MEDDIC‑compliant summary.
 
+CRITICAL RULES:
+1. DO NOT ADD ANY DEMO, PLACEHOLDER, OR DEFAULT DUMMY DATA.
+2. If there are no key contacts mentioned in the transcript or captured answers, set "KeyContacts" to null. Do NOT invent names (such as "John Doe", "Jane Smith") or placeholder roles (such as "Champion").
+3. For all other fields (Why_Do_Anything, BusinessValue, NextSteps, DecisionMap, CurrentEnvironment), only provide a summary if the topic was actually discussed or present in the transcript/captured answers. Otherwise, set the value to null.
+4. Use professional, concise language. Max 40 words per category.
+
 Structured output required:
 
 {
-  "Why_Do_Anything": "Summarize the customer's pain points, desired outcomes, and consequences of inaction. Use captured answers and transcript.",
-  "BusinessValue": "Summarize success metrics, ROI expectations, and what prompted the search for a solution.",
+  "Why_Do_Anything": "Summarize the customer's pain points, desired outcomes, and consequences of inaction. Use captured answers and transcript. Set to null if not mentioned.",
+  "BusinessValue": "Summarize success metrics, ROI expectations, and what prompted the search for a solution. Set to null if not mentioned.",
   "KeyContacts": [
     {
       "name": "Full Name",
       "title": "Title/Role (Champion, Economic Buyer, etc.)"
     }
   ],
-  "NextSteps": "Summarize agreed next steps, decision timeline, and implementation plan.",
-  "DecisionMap": "Summarize the decision process, timeline, procurement, security or legal steps and evaluation criteria.",
-  "CurrentEnvironment": "Summarize the customer's current environment, process, tech stack, and any alternative solutions or competitors considered."
+  "NextSteps": "Summarize agreed next steps, decision timeline, and implementation plan. Set to null if not mentioned.",
+  "DecisionMap": "Summarize the decision process, timeline, procurement, security or legal steps and evaluation criteria. Set to null if not mentioned.",
+  "CurrentEnvironment": "Summarize the customer's current environment, process, tech stack, and any alternative solutions or competitors considered. Set to null if not mentioned."
 }
-
-If a category has no information, set its value to null.
-Use professional, concise language. Max 40 words per category.
 `;
 
   try {

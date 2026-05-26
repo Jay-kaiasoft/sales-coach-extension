@@ -9,7 +9,8 @@
     "activeTab",
     "identity",
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "cookies"
   ],
   "host_permissions": [
     "https://meet.google.com/*",
@@ -22,7 +23,8 @@
     "https://accounts.google.com/*",
     "https://oauth2.googleapis.com/*",
     "https://devapi.360pipe.com/*",
-    "https://api.360pipe.com/*"
+    "https://api.360pipe.com/*",
+    "https://devwebapp.360pipe.com/*"
   ],
   "action": {
     "default_popup": "index.html"
