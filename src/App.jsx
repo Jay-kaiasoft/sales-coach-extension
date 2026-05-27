@@ -189,6 +189,7 @@ const App = () => {
   const [opportunitys, setOpportunitys] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [newOppName, setNewOppName] = useState('');
+  const [introduction, setIntroduction] = useState('');
 
   const bottomRef = useRef(null);
   const lastProcessedTranscript = useRef("");
@@ -205,7 +206,7 @@ const App = () => {
     const checkCookie = async () => {
       const tokenVal = await getCookie('sales-coach-extension-token');
       const userVal = await getCookie('sales-coach-extension-user-info');
-      
+
       let parsedUser = null;
       if (userVal) {
         try {
@@ -214,7 +215,7 @@ const App = () => {
           console.error("Failed to parse user info cookie:", e);
         }
       }
-      
+
       if (!tokenVal || !parsedUser) {
         localStorage.removeItem("userInfo");
         setToken(null);
@@ -223,7 +224,7 @@ const App = () => {
         setToken(tokenVal);
         setUserInfo(parsedUser);
       }
-      
+
       setIsCookieChecked(true);
     };
     checkCookie();
@@ -306,7 +307,7 @@ const App = () => {
       } else if (event.data.type === 'MEETING_END') {
         // Meeting ended – stop polling and generate final summary
         setIsMeetingActive(false);
-        generateFinalSummary();
+        generateFinalSummary("Y");
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -418,7 +419,7 @@ const App = () => {
     }
   };
 
-  const generateFinalSummary = async () => {
+  const generateFinalSummary = async (storeNote = "N") => {
     // if (isGeneratingSummaryRef.current) return;
     // isGeneratingSummaryRef.current = true;
     try {
@@ -438,15 +439,15 @@ const App = () => {
             summary?.KeyContacts?.forEach(contact => {
               const cleanName = (contact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
               const cleanTitle = (contact.title || "").trim();
-              
+
               // Check if contact with same name and title already exists in the backup
               const isDuplicate = keyContactsBackupRef?.current?.some(backupContact => {
                 const backupCleanName = (backupContact.name || "").replace(/^(Mr\.|Mrs\.|Ms\.|Mr|Mrs|Ms)\s+/i, "").trim();
                 const backupCleanTitle = (backupContact.title || "").trim();
-                return backupCleanName.toLowerCase() === cleanName.toLowerCase() && 
-                       backupCleanTitle.toLowerCase() === cleanTitle.toLowerCase();
+                return backupCleanName.toLowerCase() === cleanName.toLowerCase() &&
+                  backupCleanTitle.toLowerCase() === cleanTitle.toLowerCase();
               });
-              
+
               if (!isDuplicate) {
                 const nameParts = cleanName.split(/\s+/);
                 processedKeyContacts.push({
@@ -471,7 +472,9 @@ const App = () => {
             KeyContacts: processedKeyContacts,
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
-            cleanTranscript: cleanTranscript
+            cleanTranscript: cleanTranscript,
+            introduction: introduction,
+            storeNote: storeNote
           }
           setFinalSummary(finalSummaryData);
           setTips([]);
@@ -650,242 +653,277 @@ const App = () => {
 
                   {/* MEDDIC Qualification Section */}
                   {isMeetingActive && (
-                    <section className="bg-white rounded-2xl border border-premium-100 shadow-sm">
-                      {/* Section Header */}
-                      <div
-                        className="px-5 py-4 flex items-center justify-between border-b border-premium-50 bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
-                        onClick={() => setIsMeddicCollapsed(prev => !prev)}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <h2 className="text-xs font-black text-premium-900 uppercase tracking-wider flex items-center">
-                            MEDDIC Qualification
-                          </h2>
-                          <div
-                            className="text-premium-400 hover:text-premium-600 transition-colors cursor-pointer flex items-center"
-                            title="MEDDIC is a sales qualification framework focused on Metrics, Economic Buyer, Decision Process, Decision Criteria, Identify Pain, and Competition."
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                    <>
+                      <div className="mb-6">
+                        <label className="text-[10px] font-bold text-premium-400 uppercase tracking-widest mb-2 block">
+                          Introduction
+                        </label>
+                        <TextField
+                          variant="outlined"
+                          placeholder="Enter introduction..."
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              backgroundColor: 'white',
+                              '& fieldset': {
+                                borderColor: '#e5e7eb', // premium-200
+                              },
+                              '&:hover fieldset': {
+                                borderColor: '#d1d5db', // premium-300
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#3b82f6', // blue-500
+                              },
+                            },
+                          }}
+                          value={introduction}
+                          onChange={(e) => {
+                            setIntroduction(e.target.value);
+                          }}
+                          multiline
+                          rows={3}
+                          fullWidth
+                          className="w-full"
+                        />
+                      </div>
+                      <section className="bg-white rounded-2xl border border-premium-100 shadow-sm">
+                        {/* Section Header */}
+                        <div
+                          className="px-5 py-4 flex items-center justify-between border-b border-premium-50 bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
+                          onClick={() => setIsMeddicCollapsed(prev => !prev)}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <h2 className="text-xs font-black text-premium-900 uppercase tracking-wider flex items-center">
+                              MEDDIC Qualification
+                            </h2>
+                            <div
+                              className="text-premium-400 hover:text-premium-600 transition-colors cursor-pointer flex items-center"
+                              title="MEDDIC is a sales qualification framework focused on Metrics, Economic Buyer, Decision Process, Decision Criteria, Identify Pain, and Competition."
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
                           </div>
+
+                          <button className="text-premium-400 hover:text-premium-600 transition-transform duration-200 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transform transition-transform ${isMeddicCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
                         </div>
 
-                        <button className="text-premium-400 hover:text-premium-600 transition-transform duration-200 cursor-pointer">
-                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transform transition-transform ${isMeddicCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                        </button>
-                      </div>
+                        {/* Expandable MEDDIC Section */}
+                        {!isMeddicCollapsed && (
+                          <div className="p-5 space-y-6">
+                            {/* Circular Tabs Row */}
+                            <div className="relative flex items-center justify-between w-full px-2 py-4">
+                              {/* Dash Connector Line */}
+                              <div className="absolute top-1/2 left-4 right-4 h-0.5 border-t border-dashed border-slate-200 -translate-y-1/2 z-0"></div>
 
-                      {/* Expandable MEDDIC Section */}
-                      {!isMeddicCollapsed && (
-                        <div className="p-5 space-y-6">
-                          {/* Circular Tabs Row */}
-                          <div className="relative flex items-center justify-between w-full px-2 py-4">
-                            {/* Dash Connector Line */}
-                            <div className="absolute top-1/2 left-4 right-4 h-0.5 border-t border-dashed border-slate-200 -translate-y-1/2 z-0"></div>
+                              {MEDDIC_STAGES.map((stage) => {
+                                const { answeredCount, totalCount, isCompleted } = getCategoryStatus(stage);
+                                const isActive = activeCategoryKey === stage.key;
 
-                            {MEDDIC_STAGES.map((stage) => {
-                              const { answeredCount, totalCount, isCompleted } = getCategoryStatus(stage);
-                              const isActive = activeCategoryKey === stage.key;
+                                let buttonClass = "";
+                                if (isActive) {
+                                  buttonClass = "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 scale-110";
+                                } else if (isCompleted) {
+                                  buttonClass = "bg-white text-indigo-600 border-indigo-600";
+                                } else if (answeredCount > 0) {
+                                  buttonClass = "bg-indigo-50 text-indigo-500 border-indigo-200";
+                                } else {
+                                  buttonClass = "bg-slate-50 text-slate-400 border-slate-200";
+                                }
 
-                              let buttonClass = "";
-                              if (isActive) {
-                                buttonClass = "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 scale-110";
-                              } else if (isCompleted) {
-                                buttonClass = "bg-white text-indigo-600 border-indigo-600";
-                              } else if (answeredCount > 0) {
-                                buttonClass = "bg-indigo-50 text-indigo-500 border-indigo-200";
-                              } else {
-                                buttonClass = "bg-slate-50 text-slate-400 border-slate-200";
-                              }
+                                return (
+                                  <button
+                                    key={stage.key}
+                                    onClick={() => {
+                                      setActiveCategoryKey(stage.key);
+                                      setExpandedQuestion(null); // reset expanded question on tab switch
+                                    }}
+                                    className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full font-black text-sm border-2 transition-all duration-200 cursor-pointer ${buttonClass}`}
+                                  >
+                                    {stage.letter}
+
+                                    {/* Small badge for completion / progress */}
+                                    {isCompleted && (
+                                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white border border-white font-bold">
+                                        ✓
+                                      </span>
+                                    )}
+                                    {!isCompleted && answeredCount > 0 && (
+                                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white border border-white font-bold">
+                                        {answeredCount}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Selected Tab Label Name */}
+                            <div className="text-center -mt-2">
+                              <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
+                                {MEDDIC_STAGES.find(s => s.key === activeCategoryKey)?.label}
+                              </span>
+                            </div>
+
+                            {/* Active Stage Details Card */}
+                            {(() => {
+                              const activeStage = MEDDIC_STAGES.find(s => s.key === activeCategoryKey);
+                              if (!activeStage) return null;
+
+                              const { answeredCount, totalCount, isCompleted } = getCategoryStatus(activeStage);
+                              const indexPrefix = MEDDIC_STAGES.indexOf(activeStage) + 1;
 
                               return (
-                                <button
-                                  key={stage.key}
-                                  onClick={() => {
-                                    setActiveCategoryKey(stage.key);
-                                    setExpandedQuestion(null); // reset expanded question on tab switch
-                                  }}
-                                  className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full font-black text-sm border-2 transition-all duration-200 cursor-pointer ${buttonClass}`}
-                                >
-                                  {stage.letter}
-
-                                  {/* Small badge for completion / progress */}
-                                  {isCompleted && (
-                                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white border border-white font-bold">
-                                      ✓
-                                    </span>
-                                  )}
-                                  {!isCompleted && answeredCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white border border-white font-bold">
-                                      {answeredCount}
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Selected Tab Label Name */}
-                          <div className="text-center -mt-2">
-                            <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
-                              {MEDDIC_STAGES.find(s => s.key === activeCategoryKey)?.label}
-                            </span>
-                          </div>
-
-                          {/* Active Stage Details Card */}
-                          {(() => {
-                            const activeStage = MEDDIC_STAGES.find(s => s.key === activeCategoryKey);
-                            if (!activeStage) return null;
-
-                            const { answeredCount, totalCount, isCompleted } = getCategoryStatus(activeStage);
-                            const indexPrefix = MEDDIC_STAGES.indexOf(activeStage) + 1;
-
-                            return (
-                              <div className="space-y-5 animate-slide-in">
-                                {/* Header Info */}
-                                <div className="flex items-start space-x-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                                    {renderStageIcon(activeStage.key)}
-                                  </div>
-                                  <div className="flex-1 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                      <h3 className="text-xs font-black text-premium-900">
-                                        {indexPrefix}. {activeStage.title}
-                                      </h3>
-                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isCompleted
+                                <div className="space-y-5 animate-slide-in">
+                                  {/* Header Info */}
+                                  <div className="flex items-start space-x-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                                      {renderStageIcon(activeStage.key)}
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                      <div className="flex items-center justify-between">
+                                        <h3 className="text-xs font-black text-premium-900">
+                                          {indexPrefix}. {activeStage.title}
+                                        </h3>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isCompleted
                                           ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                           : answeredCount > 0
                                             ? 'bg-amber-50 text-amber-600 border border-amber-100'
                                             : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                                        }`}>
-                                        {isCompleted
-                                          ? 'Completed'
-                                          : answeredCount > 0
-                                            ? `In Progress (${answeredCount}/${totalCount})`
-                                            : 'Active'}
-                                      </span>
+                                          }`}>
+                                          {isCompleted
+                                            ? 'Completed'
+                                            : answeredCount > 0
+                                              ? `In Progress (${answeredCount}/${totalCount})`
+                                              : 'Active'}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] font-medium text-premium-400 leading-normal">
+                                        {activeStage.description}
+                                      </p>
                                     </div>
-                                    <p className="text-[10px] font-medium text-premium-400 leading-normal">
-                                      {activeStage.description}
-                                    </p>
                                   </div>
-                                </div>
 
-                                {/* Questions List */}
-                                <div className="space-y-3">
-                                  <h4 className="text-[9px] font-black text-premium-400 uppercase tracking-widest">
-                                    TOP QUESTIONS
-                                  </h4>
+                                  {/* Questions List */}
+                                  <div className="space-y-3">
+                                    <h4 className="text-[9px] font-black text-premium-400 uppercase tracking-widest">
+                                      TOP QUESTIONS
+                                    </h4>
 
-                                  <div className="space-y-2.5">
-                                    {activeStage.questions.map((question, qIdx) => {
-                                      const answer = capturedAnswers[question];
-                                      const isAnswered = !!(answer && answer.trim());
-                                      const isExpanded = expandedQuestion === question;
+                                    <div className="space-y-2.5">
+                                      {activeStage.questions.map((question, qIdx) => {
+                                        const answer = capturedAnswers[question];
+                                        const isAnswered = !!(answer && answer.trim());
+                                        const isExpanded = expandedQuestion === question;
 
-                                      return (
-                                        <div
-                                          key={qIdx}
-                                          className={`rounded-xl border transition-all duration-200 overflow-hidden ${isExpanded
+                                        return (
+                                          <div
+                                            key={qIdx}
+                                            className={`rounded-xl border transition-all duration-200 overflow-hidden ${isExpanded
                                               ? 'border-indigo-100 bg-indigo-50/10 shadow-xs'
                                               : isAnswered
                                                 ? 'border-emerald-100 bg-emerald-50/5 hover:border-emerald-200'
                                                 : 'border-slate-100 bg-white hover:border-slate-200'
-                                            }`}
-                                        >
-                                          {/* Question Row */}
-                                          <div
-                                            onClick={() => setExpandedQuestion(prev => prev === question ? null : question)}
-                                            className="p-3.5 flex items-center justify-between cursor-pointer select-none"
+                                              }`}
                                           >
-                                            <div className="flex items-center space-x-3 pr-4">
-                                              <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
+                                            {/* Question Row */}
+                                            <div
+                                              onClick={() => setExpandedQuestion(prev => prev === question ? null : question)}
+                                              className="p-3.5 flex items-center justify-between cursor-pointer select-none"
+                                            >
+                                              <div className="flex items-center space-x-3 pr-4">
+                                                <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
                                                   ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
                                                   : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
-                                                }`}>
-                                                {qIdx + 1}
+                                                  }`}>
+                                                  {qIdx + 1}
+                                                </div>
+                                                <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
+                                                  }`}>
+                                                  {question}
+                                                </p>
                                               </div>
-                                              <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
-                                                }`}>
-                                                {question}
-                                              </p>
+
+                                              <div className="flex-shrink-0 flex items-center space-x-1.5">
+                                                {/* Answer status indicator icon */}
+                                                {isAnswered ? (
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                  </svg>
+                                                ) : (
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                  </svg>
+                                                )}
+
+                                                {/* Chevron */}
+                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-slate-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                              </div>
                                             </div>
 
-                                            <div className="flex-shrink-0 flex items-center space-x-1.5">
-                                              {/* Answer status indicator icon */}
-                                              {isAnswered ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                              ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                              )}
-
-                                              {/* Chevron */}
-                                              <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-slate-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                              </svg>
-                                            </div>
-                                          </div>
-
-                                          {/* Dropdown Content */}
-                                          {isExpanded && (
-                                            <div className="px-4 pb-4 pt-0 border-t border-slate-50/80 animate-slide-in">
-                                              {isAnswered ? (
-                                                <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl">
-                                                  <div className="flex items-center space-x-1 mb-1">
-                                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">AI EXTRACTED ANSWER:</span>
+                                            {/* Dropdown Content */}
+                                            {isExpanded && (
+                                              <div className="px-4 pb-4 pt-0 border-t border-slate-50/80 animate-slide-in">
+                                                {isAnswered ? (
+                                                  <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl">
+                                                    <div className="flex items-center space-x-1 mb-1">
+                                                      <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">AI EXTRACTED ANSWER:</span>
+                                                    </div>
+                                                    <p className="text-xs font-semibold text-slate-800 leading-relaxed">
+                                                      {answer}
+                                                    </p>
                                                   </div>
-                                                  <p className="text-xs font-semibold text-slate-800 leading-relaxed">
-                                                    {answer}
-                                                  </p>
-                                                </div>
-                                              ) : (
-                                                <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                                                  <p className="text-xs text-slate-400 font-medium italic">
-                                                    Not yet addressed in the conversation. Ask this during the meeting to capture customer context.
-                                                  </p>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
+                                                ) : (
+                                                  <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                                                    <p className="text-xs text-slate-400 font-medium italic">
+                                                      Not yet addressed in the conversation. Ask this during the meeting to capture customer context.
+                                                    </p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* AI Insight Box */}
+                                  <div className="p-4 bg-linear-to-r from-indigo-50 to-purple-50 border border-indigo-100/50 rounded-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                      </svg>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <span className="text-sm">✨</span>
+                                      <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
+                                        AI INSIGHT
+                                      </h4>
+                                    </div>
+
+                                    {/* Show live tips first if any are generated, else base insight */}
+                                    <p className="text-[10.5px] font-semibold text-indigo-950 leading-relaxed">
+                                      {tips.length > 0 ? tips[tips.length - 1] : activeStage.baseInsight}
+                                    </p>
                                   </div>
                                 </div>
-
-                                {/* AI Insight Box */}
-                                <div className="p-4 bg-linear-to-r from-indigo-50 to-purple-50 border border-indigo-100/50 rounded-2xl relative overflow-hidden">
-                                  <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                    </svg>
-                                  </div>
-
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <span className="text-sm">✨</span>
-                                    <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
-                                      AI INSIGHT
-                                    </h4>
-                                  </div>
-
-                                  {/* Show live tips first if any are generated, else base insight */}
-                                  <p className="text-[10.5px] font-semibold text-indigo-950 leading-relaxed">
-                                    {tips.length > 0 ? tips[tips.length - 1] : activeStage.baseInsight}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </section>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </section>
+                    </>
                   )}
 
                   {/* Coaching Insights Section */}
@@ -905,7 +943,7 @@ const App = () => {
                           </h3>
 
                           {Object.entries(finalSummary)?.map(([key, value]) => {
-                            if (!value || ['opportunityId', 'customerId', "cleanTranscript"].includes(key)) return null;
+                            if (!value || ['opportunityId', 'customerId', "cleanTranscript", "introduction", "storeNote"].includes(key)) return null;
 
                             let content;
                             if (key === 'KeyContacts' && Array.isArray(value)) {

@@ -43,14 +43,14 @@ const Login = ({ onLoginSuccess }) => {
         setLoginPreference(res?.data?.result?.loginPreference || "password");
       } else if (res?.data?.status === 200 && res?.data?.result?.token) {
         // Set cookie 'sales-coach-extension-token' to expire in 24HR (1 day)
-        await setCookie('sales-coach-extension-token', res?.data?.result?.token, 1);
+        await setCookie('sales-coach-extension-token', res?.data?.result?.token, 0.5);
 
         const userdata = {
           email: res?.data?.result?.email,
           userId: res?.data?.result?.userId,
           name: res?.data?.result?.name
         };
-        await setCookie('sales-coach-extension-user-info', JSON.stringify(userdata), 1);
+        await setCookie('sales-coach-extension-user-info', JSON.stringify(userdata), 0.5);
 
         dispatch(setAlert({ open: true, type: "success", message: res?.data?.message || "Login successful" }));
 
