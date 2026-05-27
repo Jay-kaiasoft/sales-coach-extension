@@ -189,7 +189,6 @@ const App = () => {
   const [opportunitys, setOpportunitys] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [newOppName, setNewOppName] = useState('');
-  const [introduction, setIntroduction] = useState('');
 
   const bottomRef = useRef(null);
   const lastProcessedTranscript = useRef("");
@@ -201,6 +200,12 @@ const App = () => {
   const summaryGeneratedRef = useRef(false);
   const keyContactsBackupRef = useRef([]);
   const isGeneratingSummaryRef = useRef(false);
+  const introductionRef = useRef("");
+  const [introduction, setIntroduction] = useState("");
+
+  useEffect(() => {
+    introductionRef.current = introduction;
+  }, [introduction]);
 
   useEffect(() => {
     const checkCookie = async () => {
@@ -335,7 +340,7 @@ const App = () => {
         processTranscript(cleanTranscript, activeQuestions);
         lastProcessedTranscript.current = cleanTranscript;
       }
-    }, 10000);
+    }, 5000);
     return () => clearInterval(intervalRef.current);
   }, [transcriptHistory, isMeetingActive, capturedAnswers]);
 
@@ -399,6 +404,7 @@ const App = () => {
           setTips(prev => [...prev, result.coaching]);
         }
         if (result.extracted_answers && result?.extracted_answers?.length > 0) {
+          let updatedAnswers;
           setCapturedAnswers(prev => {
             const next = { ...prev };
             result.extracted_answers.forEach(item => {
@@ -407,9 +413,12 @@ const App = () => {
                 next[item.question] = item.answer;
               }
             });
+            updatedAnswers = next;
             return next;
           });
-          generateFinalSummary()
+          generateFinalSummary("N", updatedAnswers);
+          // if (updatedAnswers) {
+          // }
         }
       }
     } catch (err) {
@@ -419,7 +428,7 @@ const App = () => {
     }
   };
 
-  const generateFinalSummary = async (storeNote = "N") => {
+  const generateFinalSummary = async (storeNote = "N", currentAnswers = null) => {
     // if (isGeneratingSummaryRef.current) return;
     // isGeneratingSummaryRef.current = true;
     try {
@@ -430,9 +439,10 @@ const App = () => {
         .filter((s, i, arr) => s && arr.indexOf(s) === i) // Simple de-duplicate of sentences
         .join(". ");
 
-      if (cleanTranscript && answersRef.current) {
+      const activeAnswers = currentAnswers || answersRef.current;
+      if (cleanTranscript) {
         setIsLoading(true);
-        const summary = await getMeetingSummary(cleanTranscript, answersRef.current);
+        const summary = await getMeetingSummary(cleanTranscript, activeAnswers);
         if (summary) {
           let processedKeyContacts = [];
           if (Array.isArray(summary.KeyContacts)) {
@@ -473,7 +483,7 @@ const App = () => {
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
             cleanTranscript: cleanTranscript,
-            introduction: introduction,
+            introduction: introductionRef.current,
             storeNote: storeNote
           }
           setFinalSummary(finalSummaryData);
@@ -818,7 +828,12 @@ const App = () => {
                                     </h4>
 
                                     <div className="space-y-2.5">
-                                      {activeStage.questions.map((question, qIdx) => {
+                                      {activeStage.questions
+                                        .filter((question) => {
+                                          const answer = capturedAnswers[question];
+                                          return !(answer && answer.trim());
+                                        })
+                                        .map((question, qIdx) => {
                                         const answer = capturedAnswers[question];
                                         const isAnswered = !!(answer && answer.trim());
                                         const isExpanded = expandedQuestion === question;
@@ -851,17 +866,21 @@ const App = () => {
                                                 </p>
                                               </div>
 
-                                              <div className="flex-shrink-0 flex items-center space-x-1.5">
-                                                {/* Answer status indicator icon */}
-                                                {isAnswered ? (
-                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                  </svg>
-                                                ) : (
-                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                  </svg>
-                                                )}
+                                              <div className="shrink-0 flex items-center space-x-1.5">
+                                                {/* Checkbox to mark as answered */}
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isAnswered}
+                                                  onChange={(e) => {
+                                                    e.stopPropagation();
+                                                    if (e.target.checked) {
+                                                      const nextAnswers = { ...capturedAnswers, [question]: "Checked" };
+                                                      setCapturedAnswers(nextAnswers);
+                                                      generateFinalSummary("N", nextAnswers);
+                                                    }
+                                                  }}
+                                                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer"
+                                                />
 
                                                 {/* Chevron */}
                                                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-slate-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
