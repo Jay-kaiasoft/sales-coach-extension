@@ -323,26 +323,45 @@ const App = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Polling every 5 seconds – only if meeting active and there are unanswered categories
+  const getActiveQuestionsFromRef = () => {
+    const unanswered = new Set(Object.keys(CATEGORIES));
+    const currentAnswers = answersRef.current || {};
+    for (const question in currentAnswers) {
+      if (currentAnswers[question] && currentAnswers[question].trim() !== "") {
+        for (const [cat, questions] of Object.entries(CATEGORIES)) {
+          if (questions.includes(question)) {
+            unanswered.delete(cat);
+            break;
+          }
+        }
+      }
+    }
+    const active = [];
+    for (const cat of Array.from(unanswered)) {
+      active.push(...CATEGORIES[cat]);
+    }
+    return active;
+  };
+
+  // Polling every 5 seconds – only if meeting active
   useEffect(() => {
     if (!isMeetingActive) return;
     intervalRef.current = setInterval(() => {
-      const activeQuestions = getActiveQuestions();
-      // if (transcriptHistory.trim() &&
-      //   transcriptHistory !== lastProcessedTranscript.current &&
-      //   activeQuestions.length > 0) {
-      const cleanTranscript = transcriptHistory?.split(/[.!?]+\s+/)
+      const activeQuestions = getActiveQuestionsFromRef();
+      const currentTranscript = transcriptRef.current || "";
+
+      const cleanTranscript = currentTranscript.split(/[.!?]+\s+/)
         .map(s => s.trim())
         .filter((s, i, arr) => s && arr.indexOf(s) === i) // Simple de-duplicate of sentences
         .join(". ");
 
-      if (cleanTranscript.trim()) {
+      if (cleanTranscript.trim() && cleanTranscript !== lastProcessedTranscript.current) {
         processTranscript(cleanTranscript, activeQuestions);
         lastProcessedTranscript.current = cleanTranscript;
       }
     }, 5000);
     return () => clearInterval(intervalRef.current);
-  }, [transcriptHistory, isMeetingActive, capturedAnswers]);
+  }, [isMeetingActive]);
 
   // Polling for participants until found
   useEffect(() => {
@@ -400,9 +419,9 @@ const App = () => {
     try {
       const result = await getSalesCoaching(text);
       if (result) {
-        if (result.coaching) {
-          setTips(prev => [...prev, result.coaching]);
-        }
+        // if (result.coaching) {
+        //   setTips(prev => [...prev, result.coaching]);
+        // }
         if (result.extracted_answers && result?.extracted_answers?.length > 0) {
           let updatedAnswers;
           setCapturedAnswers(prev => {
@@ -479,7 +498,7 @@ const App = () => {
             BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
             DecisionMap: `${summary.DecisionMap || ""}`,
             CurrentEnvironment: `${summary.CurrentEnvironment || ""}`,
-            KeyContacts: processedKeyContacts,
+            KeyContacts: storeNote === "Y" ? keyContactsBackupRef.current || processedKeyContacts : processedKeyContacts,
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
             cleanTranscript: cleanTranscript,
@@ -664,7 +683,7 @@ const App = () => {
                   {/* MEDDIC Qualification Section */}
                   {isMeetingActive && (
                     <>
-                      <div className="mb-6">
+                      {/* <div className="mb-6">
                         <label className="text-[10px] font-bold text-premium-400 uppercase tracking-widest mb-2 block">
                           Introduction
                         </label>
@@ -696,7 +715,7 @@ const App = () => {
                           fullWidth
                           className="w-full"
                         />
-                      </div>
+                      </div> */}
                       <section className="bg-white rounded-2xl border border-premium-100 shadow-sm">
                         {/* Section Header */}
                         <div
@@ -834,107 +853,55 @@ const App = () => {
                                           return !(answer && answer.trim());
                                         })
                                         .map((question, qIdx) => {
-                                        const answer = capturedAnswers[question];
-                                        const isAnswered = !!(answer && answer.trim());
-                                        const isExpanded = expandedQuestion === question;
+                                          const answer = capturedAnswers[question];
+                                          const isAnswered = !!(answer && answer.trim());
 
-                                        return (
-                                          <div
-                                            key={qIdx}
-                                            className={`rounded-xl border transition-all duration-200 overflow-hidden ${isExpanded
-                                              ? 'border-indigo-100 bg-indigo-50/10 shadow-xs'
-                                              : isAnswered
+                                          return (
+                                            <div
+                                              key={qIdx}
+                                              className={`rounded-xl border transition-all duration-200 overflow-hidden ${isAnswered
                                                 ? 'border-emerald-100 bg-emerald-50/5 hover:border-emerald-200'
                                                 : 'border-slate-100 bg-white hover:border-slate-200'
-                                              }`}
-                                          >
-                                            {/* Question Row */}
-                                            <div
-                                              onClick={() => setExpandedQuestion(prev => prev === question ? null : question)}
-                                              className="p-3.5 flex items-center justify-between cursor-pointer select-none"
+                                                }`}
                                             >
-                                              <div className="flex items-center space-x-3 pr-4">
-                                                <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
-                                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                                  : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
-                                                  }`}>
-                                                  {qIdx + 1}
+                                              {/* Question Row */}
+                                              <div
+                                                className="p-3.5 flex items-center justify-between select-none"
+                                              >
+                                                <div className="flex items-center space-x-3 pr-4">
+                                                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
+                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                    : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
+                                                    }`}>
+                                                    {qIdx + 1}
+                                                  </div>
+                                                  <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
+                                                    }`}>
+                                                    {question}
+                                                  </p>
                                                 </div>
-                                                <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
-                                                  }`}>
-                                                  {question}
-                                                </p>
-                                              </div>
 
-                                              <div className="shrink-0 flex items-center space-x-1.5">
-                                                {/* Checkbox to mark as answered */}
-                                                <input
-                                                  type="checkbox"
-                                                  checked={isAnswered}
-                                                  onChange={(e) => {
-                                                    e.stopPropagation();
-                                                    if (e.target.checked) {
-                                                      const nextAnswers = { ...capturedAnswers, [question]: "Checked" };
-                                                      setCapturedAnswers(nextAnswers);
-                                                      generateFinalSummary("N", nextAnswers);
-                                                    }
-                                                  }}
-                                                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer"
-                                                />
-
-                                                {/* Chevron */}
-                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 text-slate-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
+                                                <div className="shrink-0 flex items-center space-x-1.5">
+                                                  {/* Checkbox to mark as answered */}
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={isAnswered}
+                                                    onChange={(e) => {
+                                                      e.stopPropagation();
+                                                      if (e.target.checked) {
+                                                        const nextAnswers = { ...capturedAnswers, [question]: "Checked" };
+                                                        setCapturedAnswers(nextAnswers);
+                                                        generateFinalSummary("N", nextAnswers);
+                                                      }
+                                                    }}
+                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer"
+                                                  />
+                                                </div>
                                               </div>
                                             </div>
-
-                                            {/* Dropdown Content */}
-                                            {isExpanded && (
-                                              <div className="px-4 pb-4 pt-0 border-t border-slate-50/80 animate-slide-in">
-                                                {isAnswered ? (
-                                                  <div className="mt-3 p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl">
-                                                    <div className="flex items-center space-x-1 mb-1">
-                                                      <span className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">AI EXTRACTED ANSWER:</span>
-                                                    </div>
-                                                    <p className="text-xs font-semibold text-slate-800 leading-relaxed">
-                                                      {answer}
-                                                    </p>
-                                                  </div>
-                                                ) : (
-                                                  <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                                                    <p className="text-xs text-slate-400 font-medium italic">
-                                                      Not yet addressed in the conversation. Ask this during the meeting to capture customer context.
-                                                    </p>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
+                                          );
+                                        })}
                                     </div>
-                                  </div>
-
-                                  {/* AI Insight Box */}
-                                  <div className="p-4 bg-linear-to-r from-indigo-50 to-purple-50 border border-indigo-100/50 rounded-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                      </svg>
-                                    </div>
-
-                                    <div className="flex items-center space-x-2 mb-2">
-                                      <span className="text-sm">✨</span>
-                                      <h4 className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
-                                        AI INSIGHT
-                                      </h4>
-                                    </div>
-
-                                    {/* Show live tips first if any are generated, else base insight */}
-                                    <p className="text-[10.5px] font-semibold text-indigo-950 leading-relaxed">
-                                      {tips.length > 0 ? tips[tips.length - 1] : activeStage.baseInsight}
-                                    </p>
                                   </div>
                                 </div>
                               );

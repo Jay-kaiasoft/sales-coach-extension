@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "360Pipe Sales Coach",
   "version": "1.0.0",
-  "description": "Real-time AI sales coaching for Google Meet, Teams, and Webex.",
+  "description": "Real-time AI sales coaching for Google Meet and Teams.",
   "permissions": [
     "storage",
     "scripting",

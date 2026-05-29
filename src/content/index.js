@@ -33,11 +33,30 @@ function isMeetingPage() {
     const isCode = /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(path);
     if (!isCode) return false;
 
-    // If we see "Join now" or "Ask to join", we are in the lobby, not the meeting.
-    const isLobby = !!document.querySelector('[jsname="Q8S7wb"]') || !!document.querySelector('[jsname="j97Atc"]');
+    // Check if we are in the lobby.
+    // Standard lobby selectors, plus checks for buttons with "Join now", "Ask to join" or localized equivalents
+    const isLobby = !!(
+      document.querySelector('[jsname="Q8S7wb"]') || 
+      document.querySelector('[jsname="j97Atc"]') ||
+      Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => {
+        const text = (el.innerText || "").toLowerCase();
+        const ariaLabel = (el.getAttribute('aria-label') || "").toLowerCase();
+        return text.includes("join now") || text.includes("ask to join") ||
+               ariaLabel.includes("join now") || ariaLabel.includes("ask to join");
+      })
+    );
 
-    // If we see meeting controls (like the leave button), we are definitely in.
-    const isInMeeting = !!document.querySelector('[jsname="CQm7mc"]') || !!document.querySelector('[data-meeting-title]');
+    // Check if we see meeting controls or buttons that indicate we are in an active meeting
+    const isInMeeting = !!(
+      document.querySelector('[jsname="CQm7mc"]') || // Leave button jsname fallback
+      document.querySelector('[data-meeting-title]') ||
+      document.querySelector('button[aria-label*="Leave"], button[aria-label*="leave"]') ||
+      document.querySelector('[aria-label*="chat"], [aria-label*="Chat"]') ||
+      document.querySelector('[aria-label*="people"], [aria-label*="People"]') ||
+      document.querySelector('[aria-label*="everyone"], [aria-label*="everyone"]') ||
+      document.querySelector('button[aria-label*="microphone"], button[aria-label*="Microphone"]') ||
+      document.querySelector('button[aria-label*="camera"], button[aria-label*="Camera"]')
+    );
 
     return isCode && isInMeeting && !isLobby;
   }
@@ -293,7 +312,13 @@ function sendToSidebar(text) {
 // --- MAIN CONTROLLER ---
 function findLeaveButton() {
   if (currentPlatform === 'MEET') {
-    // Red "Leave call" button in Google Meet
+    // Red "Leave call" button in Google Meet (with translations support)
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const leaveBtn = buttons.find(btn => {
+      const label = (btn.getAttribute('aria-label') || "").toLowerCase();
+      return label.includes('leave') || label.includes('quitter') || label.includes('salir') || label.includes('hang up');
+    });
+    if (leaveBtn) return leaveBtn;
     return document.querySelector('button[aria-label="Leave call"], [jsname="CQm7mc"]');
   } else if (currentPlatform === 'TEAMS') {
     // Leave button in Teams: usually has aria-label containing "leave" or "hang up" or id "hangup-button"

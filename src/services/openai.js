@@ -162,3 +162,44 @@ Structured output required:
     return null;
   }
 }
+
+// {
+//   "error": {
+//     "message": "'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.",
+//     "type": "invalid_request_error",
+//     "param": "messages",
+//     "code": null
+//   }
+// }
+
+// QUESTIONS TO TRACK:
+// ${questionsToTrack.map(q => `- ${q}`).join('\n')}
+// TASK:
+// Analyze the transcript chunk and identify any information that directly answers the QUESTIONS TO TRACK.
+// IMPORTANT:
+// - Capture information as concise factual bullet points.
+// - Preserve the prospect's meaning as closely as possible.
+// - Do NOT create high-level summaries or generic interpretations.
+// - Do NOT combine multiple facts into one bullet.
+// - Each distinct problem, requirement, metric, stakeholder, timeline, or process detail should be its own bullet.
+// - Use the prospect's terminology whenever possible.
+// - If new details expand on a previously captured answer, append the new bullet(s) rather than replacing existing information.
+// - Ignore statements made by the seller unless they reveal customer-confirmed information.
+
+// RESPONSE FORMAT:
+// You MUST return a valid JSON object with this exact structure:
+// {
+//   "extracted_answers": [
+//     {
+//       "question": "The exact question text from the tracking list",
+//       "answer": "A concise summary of the participant's answer (max 40 words)",
+//       "status": "answered"
+//     }
+//   ],
+//   "coaching": "Your MEDDIC coaching tip here"
+// }
+// If no new information is found for a question, do not include that question.
+// MEDDPICC COACHING:
+// Provide 1-2 coaching tips (maximum 20 words each) focused on uncovering missing information.
+
+// If no answers are found, "extracted_answers" should be an empty array [].
