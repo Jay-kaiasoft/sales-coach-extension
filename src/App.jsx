@@ -479,17 +479,22 @@ const App = () => {
 
               if (!isDuplicate) {
                 const nameParts = cleanName.split(/\s+/);
-                processedKeyContacts.push({
+                const processedContact = {
                   ...contact,
                   firstName: nameParts[0] || "",
                   lastName: nameParts.slice(1).join(" ") || "",
-                });
+                };
+                processedKeyContacts.push(processedContact);
                 // Store in backup copy
-                keyContactsBackupRef.current.push(contact);
+                keyContactsBackupRef.current.push(processedContact);
               }
             });
           } else {
             processedKeyContacts = summary?.KeyContacts;
+          }
+
+          if (storeNote === "Y" && Array.isArray(keyContactsBackupRef.current)) {
+            processedKeyContacts = keyContactsBackupRef.current;
           }
 
           let finalSummaryData = {
@@ -498,7 +503,7 @@ const App = () => {
             BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
             DecisionMap: `${summary.DecisionMap || ""}`,
             CurrentEnvironment: `${summary.CurrentEnvironment || ""}`,
-            KeyContacts: storeNote === "Y" ? keyContactsBackupRef.current || processedKeyContacts : processedKeyContacts,
+            KeyContacts: processedKeyContacts,
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
             cleanTranscript: cleanTranscript,
