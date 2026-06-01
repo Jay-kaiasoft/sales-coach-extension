@@ -8,49 +8,80 @@ const openai = new OpenAI({
 
 export const Why_Do_Anything_Questions = [
   "What’s driving the urgency to solve this now?",
-  "Why has this become a priority now?",
+  "How is this issue impacting the business today?",
   "What happens if this problem is not addressed?"
 ];
 
 export const BusinessValue_Questions = [
-  "If this were solved, what measurable improvement would you expect?",
-  "How much time, revenue, or productivity is being impacted today?",
-  "What business metrics are you hoping to improve?"
+  "If this were solved, what measurable business improvement would you expect?",
+  "How is this impacting revenue, productivity, time, or cost today?",
+  "What key business metrics are you hoping to improve?",
+  "What business outcomes matter most to the executive sponsor?"
 ];
 
-export const KeyContacts_Questions = [
+export const EconomicBuyer_Questions = [
+  "Who ultimately approves initiatives like this?"
+];
+
+export const Champion_Questions = [
   "Who is most motivated to solve this problem?",
-  "Who would champion this internally?",
-  "Who ultimately approves initiatives like this?"  
+  "Who would champion this internally?"
 ];
 
-export const DECISIONMAP_Questions = [
-  "If we mapped out the path to a final decision, what steps would need to happen and who would be involved?",
-  "What are the most important evaluation criteria?",
-  "What does the approval process look like?",
-  "What internal procurement, legal, or security steps should we plan for?"
+export const DecisionCriteria_Questions = [
+  "What business or technical requirements are most important in selecting a solution?"
+];
+
+export const DecisionProcess_Questions = [
+  "If we mapped out the path to a final decision, what steps would need to happen and who would be involved?"
+];
+
+export const PaperProcess_Questions = [
+  "What internal procurement, legal, or security steps should we plan for?",
+  "What typically slows down or delays the purchasing process?"
 ];
 
 export const CURRENTENVIRONMENT_Questions = [
-  "What does the current process look like?",
+  "What solutions or processes are in place today?",
   "What other solutions are being considered?",
-  "What concerns or risks do you see with moving forward?"  
+  "What concerns or risks do you see with moving forward?"
 ];
 
 export const NextSteps_Questions = [
   "What would make sense as a next step from here?",
   "What additional information would be helpful for your team?",
-  "Who should be involved in the next conversation?"  
+  "Who should be involved in the next conversation?"
 ];
 
 export const ALL_QUESTIONS = [
   ...Why_Do_Anything_Questions,
   ...BusinessValue_Questions,
-  ...KeyContacts_Questions,
-  ...NextSteps_Questions,
-  ...DECISIONMAP_Questions,
-  ...CURRENTENVIRONMENT_Questions
+  ...EconomicBuyer_Questions,
+  ...Champion_Questions,
+  ...DecisionCriteria_Questions,
+  ...DecisionProcess_Questions,
+  ...PaperProcess_Questions,
+  ...CURRENTENVIRONMENT_Questions,
+  ...NextSteps_Questions
 ];
+
+// Helper to generate SHA-256 hash for prompt cache key
+async function getHash(string) {
+  try {
+    const utf8 = new TextEncoder().encode(string);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    let hash = 0;
+    for (let i = 0; i < string.length; i++) {
+      const char = string.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash |= 0;
+    }
+    return "fallback-" + Math.abs(hash);
+  }
+}
 
 // Updated to accept a custom list of questions to track
 export async function getSalesCoaching(transcriptChunk, questionsToTrack = ALL_QUESTIONS) {
@@ -60,37 +91,37 @@ export async function getSalesCoaching(transcriptChunk, questionsToTrack = ALL_Q
   }
 
   const systemPrompt = `
-You are an expert Sales Coach specializing in the MEDDIC methodology.
-Your goal is to analyze a live meeting transcript and provide coaching.
+    You are a real-time sales meeting assistant. 
+    Your job is to analyze the meeting transcript and determine whether the discovery questions 
+    below have been answered. 
+    Rules: 
+    ● Only use information explicitly stated in the transcript. 
+    ● Mark each question as Complete, In Progress, or Not Started. 
+    ● Complete = clearly answered. 
+    ● In Progress = partially answered. 
+    ● Not Started = no meaningful discussion. 
+    ● Provide brief evidence from the transcript. 
+    ● Recommend the next best unanswered question.
 
-QUESTIONS TO TRACK:
-${questionsToTrack.map(q => `- ${q}`).join('\n')}
+    QUESTIONS TO TRACK (Verify if these specific questions are answered in the transcript):
+    ${questionsToTrack.map((q, idx) => `${idx + 1}. "${q}"`).join('\n    ')}
 
-TASK:
-1. Analyze the provided transcript chunk.
-2. If you find information that answers any of the "QUESTIONS TO TRACK", provide a **concise summary** of what was said.
-   - **DO NOT** use direct quotes or copy-paste dialogue.
-   - **Summarize** the core intent, specific details, and context provided by the participants in a professional tone.
-   - If a question has already been answered in previous chunks but the new chunk provides **additional details**, update the answer accordingly.
-3. Provide 1-2 brief, high-impact MEDDIC coaching tips (max 20 words).
-
-RESPONSE FORMAT:
-You MUST return a valid JSON object with this exact structure:
-{
-  "extracted_answers": [
+    RESPONSE FORMAT:
+    You MUST return a valid JSON object with this exact structure:
     {
-      "question": "The exact question text from the tracking list",
-      "answer": "A concise summary of the participant's answer (max 40 words)",
-      "status": "answered"
+      "extracted_answers": [
+        {
+          "question": "The exact question text from the tracking list",
+          "answer": "A concise summary of the participant's answer (max 40 words)",
+          "status": "answered"
+        }
+      ]
     }
-  ],
-  "coaching": "Your MEDDIC coaching tip here"
-}
-
-If no answers are found, "extracted_answers" should be an empty array [].
-`;
+    If no answers are found, "extracted_answers" should be an empty array [].
+  `;
 
   try {
+    const cacheKey = await getHash(systemPrompt);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -99,10 +130,16 @@ If no answers are found, "extracted_answers" should be an empty array [].
       ],
       response_format: { type: "json_object" },
       temperature: 0.5,
+      prompt_cache_retention: "24h",
+      prompt_cache_key: cacheKey,
     });
 
     const responseText = completion.choices[0].message.content;
     const responseJson = JSON.parse(responseText);
+    // Log prompt caching details to verify it is working
+    const usage = completion.usage;
+    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
+    console.log(`[Q4Magic Cache Check] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
     // console.log("[Q4Magic] AI JSON Response:", responseJson);
     return responseJson;
   } catch (error) {
@@ -119,19 +156,19 @@ export async function getMeetingSummary(fullTranscript, capturedAnswers) {
   }
 
   const systemPrompt = `
-You are an expert Sales Coach. Given the full meeting transcript and the answers already captured during the conversation, produce a final MEDDIC‑compliant summary.
+You are an expert Sales Coach. Given the full meeting transcript and the answers already captured during the conversation, produce a final MEDDPICC‑compliant summary.
 
 CRITICAL RULES:
 1. DO NOT ADD ANY DEMO, PLACEHOLDER, OR DEFAULT DUMMY DATA.
-2. If there are no key contacts mentioned in the transcript or captured answers, set "KeyContacts" to null. Do NOT invent names (such as "John Doe", "Jane Smith") or placeholder roles (such as "Champion").
+2. If there are no key contacts mentioned in the transcript or captured answers, set "KeyContacts" to null. Do NOT invent names (such as "John Doe", "Jane Smith") or placeholder roles (such as "Champion" or "Economic Buyer").
 3. For all other fields (Why_Do_Anything, BusinessValue, NextSteps, DecisionMap, CurrentEnvironment), only provide a summary if the topic was actually discussed or present in the transcript/captured answers. Otherwise, set the value to null.
 4. Use professional, concise language. Max 40 words per category.
 
 Structured output required:
 
 {
-  "Why_Do_Anything": "Summarize the customer's pain points, desired outcomes, and consequences of inaction. Use captured answers and transcript. Set to null if not mentioned.",
-  "BusinessValue": "Summarize success metrics, ROI expectations, and what prompted the search for a solution. Set to null if not mentioned.",
+  "Why_Do_Anything": "Summarize the customer's pain points, desired outcomes, and consequences of inaction (Identify Pain). Use captured answers and transcript. Set to null if not mentioned.",
+  "BusinessValue": "Summarize success metrics, ROI expectations, and what prompted the search for a solution (Metrics). Set to null if not mentioned.",
   "KeyContacts": [
     {
       "name": "Full Name",
@@ -139,8 +176,177 @@ Structured output required:
     }
   ],
   "NextSteps": "Summarize agreed next steps, decision timeline, and implementation plan. Set to null if not mentioned.",
-  "DecisionMap": "Summarize the decision process, timeline, procurement, security or legal steps and evaluation criteria. Set to null if not mentioned.",
-  "CurrentEnvironment": "Summarize the customer's current environment, process, tech stack, and any alternative solutions or competitors considered. Set to null if not mentioned."
+  "DecisionMap": "Summarize the decision process, timeline, procurement, security or legal steps and evaluation criteria (Decision Criteria + Decision Process + Paper Process). Set to null if not mentioned.",
+  "CurrentEnvironment": "Summarize the customer's current environment, process, tech stack, and any alternative solutions or competitors considered (Competition). Set to null if not mentioned."
+}
+`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Full Transcript: ${fullTranscript}\n\nPreviously Captured Answers (JSON): ${JSON.stringify(capturedAnswers)}` },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const summaryJson = JSON.parse(completion.choices[0].message.content);
+    return summaryJson;
+  } catch (error) {
+    console.error("Final summary error:", error);
+    return null;
+  }
+}
+
+export async function getMeetingNotes(fullTranscript, capturedAnswers) {
+  if (!ENV_API_KEY) {
+    console.error("[Q4Magic] No API Key found for summary!");
+    return null;
+  }
+
+  const systemPrompt = `
+You are the 360Pipe Executive Brief Generator.
+Analyze the complete meeting transcript and all captured discovery data.
+Rules:
+Use only information discussed.
+Do not invent facts.
+Clearly identify assumptions and gaps.
+Write for executives and sales leadership.
+Focus on deal strategy, business value, and next actions.
+Return JSON only.
+Generate:
+Executive Summary
+5-7 sentence overview of the opportunity.
+Business Problem
+Key pain points driving change.
+Business impact of maintaining the status quo.
+Desired Outcomes
+Business goals and success criteria.
+Metrics discussed.
+Buying Team
+Economic Buyer
+Champion
+Decision Makers
+Influencers
+Decision Process
+Evaluation criteria
+Approval process
+Procurement, legal, and security requirements
+Deal Assessment
+Strengths
+Risks
+Missing information
+Recommended Strategy
+Key messages for the next meeting
+Stakeholders to engage
+Questions that must be answered
+Next Meeting Objective
+Desired outcome
+Recommended agenda
+Success criteria
+Return:
+{
+"executiveSummary":"",
+"businessProblem":[],
+"desiredOutcomes":[],
+"buyingTeam":{},
+"decisionProcess":{},
+"dealAssessment":{
+"strengths":[],
+"risks":[],
+"gaps":[]
+},
+"recommendedStrategy":[],
+"nextMeetingObjective":{}
+}
+
+`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Full Transcript: ${fullTranscript}\n\nPreviously Captured Answers (JSON): ${JSON.stringify(capturedAnswers)}` },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const summaryJson = JSON.parse(completion.choices[0].message.content);
+    return summaryJson;
+  } catch (error) {
+    console.error("Final summary error:", error);
+    return null;
+  }
+}
+
+export async function getWrapupAssistant(fullTranscript, capturedAnswers) {
+  if (!ENV_API_KEY) {
+    console.error("[Q4Magic] No API Key found for summary!");
+    return null;
+  }
+  const systemPrompt = `
+You are the 360Pipe Align & End Call Engine.
+Analyze the complete meeting transcript and captured answers.
+Rules:
+- Use only information discussed.
+- Do not invent facts.
+- Identify assumptions separately.
+- Be concise and actionable.
+- Return valid JSON only containing the exact structure below.
+
+JSON Schema Output:
+{
+  "meetingSummary": "High-level summary of the meeting",
+  "whyChange": {
+    "painPoints": ["list of identified pain points"],
+    "businessDrivers": ["list of business drivers"],
+    "urgency": "Urgency description"
+  },
+  "value": {
+    "desiredOutcomes": ["list of desired outcomes"],
+    "metricsDiscussed": ["list of metrics discussed"],
+    "expectedImpact": "Expected impact/ROI"
+  },
+  "keyContacts": {
+    "economicBuyer": "Name of Economic Buyer, or 'Not discussed'",
+    "champion": "Name of Champion, or 'Not discussed'",
+    "decisionMakers": ["List of other decision makers"],
+    "influencers": ["List of influencers"]
+  },
+  "decisionMap": {
+    "evaluationCriteria": ["list of criteria"],
+    "decisionProcess": ["list of process steps"],
+    "procurementRequirements": ["list of procurement requirements"]
+  },
+  "currentEnvironment": {
+    "existingTools": ["list of existing tools"],
+    "existingProcesses": ["list of existing processes"],
+    "currentChallenges": ["list of current challenges"]
+  },
+  "nextSteps": [
+    {
+      "action": "Description of action item",
+      "owner": "Who is responsible",
+      "dueDate": "When it is due"
+    }
+  ],
+  "risksGaps": {
+    "missingInformation": ["list of missing details"],
+    "dealRisks": ["list of risks"]
+  },
+  "meddpiccMapping": {
+    "metrics": "How Metrics are mapped",
+    "economicBuyer": "How Economic Buyer is mapped",
+    "decisionCriteria": "How Decision Criteria is mapped",
+    "decisionProcess": "How Decision Process is mapped",
+    "paperProcess": "How Paper Process is mapped",
+    "identifyPain": "How Identify Pain is mapped",
+    "champion": "How Champion is mapped"
+  }
 }
 `;
 
@@ -196,7 +402,7 @@ Structured output required:
 //       "status": "answered"
 //     }
 //   ],
-//   "coaching": "Your MEDDIC coaching tip here"
+//   "coaching": "Your MEDDPICC coaching tip here"
 // }
 // If no new information is found for a question, do not include that question.
 // MEDDPICC COACHING:

@@ -20,7 +20,7 @@ const CoachTips = ({ tips, isLoading }) => {
               </p>
               <div className="mt-4 flex items-center justify-between">
                 {/* <span className="text-[9px] text-premium-400 font-black uppercase tracking-[0.2em]">
-                  //MEDDIC INSIGHT
+                  //MEDDPICC INSIGHT
                 </span> */}
                 <span className="text-[10px] text-premium-100 group-hover:text-premium-200 transition-colors">
                   ✦
