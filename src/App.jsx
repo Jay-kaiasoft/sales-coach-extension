@@ -2,9 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Autocomplete, TextField, Typography, Button } from '@mui/material';
 import { getCookie } from './utils/cookieHelper';
 import Login from './components/Login';
-import CoachTips from './components/CoachTips';
 import CaptionWarning from './components/CaptionWarning';
-import { googleMeetService } from './services/googleMeet';
 import {
   getSalesCoaching,
   getMeetingSummary,
@@ -20,7 +18,6 @@ import {
   getMeetingNotes,
   getWrapupAssistant,
 } from './services/openai';
-import { getCustomerByEmail } from './services/customersService';
 import { getOpportunitiesByCustomerId, updateOpportunityData, createOpportunityData } from './services/opportunitiesService';
 import OpportunityWarning from './components/OpportunityWarning';
 
@@ -112,17 +109,12 @@ const MEDDPICC_STAGES = [
   }
 ];
 
-// Utility to merge new transcript chunks while removing overlaps
-const mergeTranscript = (existing, newChunk) => {
-  const s1 = (existing || "").trim();
-  const s2 = (newChunk || "").trim();
+// Helper: merge two strings with word overlap
+const mergeWords = (s1, s2) => {
   if (!s1) return s2;
   if (!s2) return s1;
-
-  // If s2 is already at the end of s1, just return s1
   if (s1.endsWith(s2)) return s1;
 
-  // Split s2 into words to find the longest overlapping prefix
   const words2 = s2.split(/\s+/);
   for (let i = words2.length; i > 0; i--) {
     const prefix = words2.slice(0, i).join(" ");
@@ -130,8 +122,105 @@ const mergeTranscript = (existing, newChunk) => {
       return s1 + " " + words2.slice(i).join(" ");
     }
   }
-
   return s1 + " " + s2;
+};
+
+// Helper: merge two speaker-annotated lines of format "Speaker: text"
+const mergeSingleLine = (l1, l2) => {
+  const s1 = (l1 || "").trim();
+  const s2 = (l2 || "").trim();
+
+  const idx1 = s1.indexOf(":");
+  const idx2 = s2.indexOf(":");
+  if (idx1 === -1 || idx2 === -1) {
+    return mergeWords(s1, s2);
+  }
+
+  const speaker1 = s1.substring(0, idx1).trim();
+  const speaker2 = s2.substring(0, idx2).trim();
+  if (speaker1 !== speaker2) {
+    return s1 + "\n" + s2;
+  }
+
+  const text1 = s1.substring(idx1 + 1).trim();
+  const text2 = s2.substring(idx2 + 1).trim();
+
+  const mergedText = mergeWords(text1, text2);
+  return `${speaker1}: ${mergedText}`;
+};
+
+// Utility to merge new transcript chunks while removing overlaps and preserving speakers
+const mergeTranscript = (existing, newChunk) => {
+  const s1 = (existing || "").trim();
+  const s2 = (newChunk || "").trim();
+  if (!s1) return s2;
+  if (!s2) return s1;
+
+  const lines1 = s1.split(/\r?\n/);
+  const lines2 = s2.split(/\r?\n/);
+
+  const maxOverlap = Math.min(lines1.length, lines2.length);
+  let overlapCount = 0;
+
+  for (let len = maxOverlap; len > 0; len--) {
+    let matches = true;
+    for (let i = 0; i < len; i++) {
+      const l1 = lines1[lines1.length - len + i].trim();
+      const l2 = lines2[i].trim();
+
+      if (l1 === l2) {
+        continue;
+      }
+
+      const idx1 = l1.indexOf(":");
+      const idx2 = l2.indexOf(":");
+      if (idx1 !== -1 && idx2 !== -1) {
+        const speaker1 = l1.substring(0, idx1).trim();
+        const speaker2 = l2.substring(0, idx2).trim();
+        if (speaker1 === speaker2 && (l2.startsWith(l1) || l1.startsWith(l2))) {
+          continue;
+        }
+      }
+
+      matches = false;
+      break;
+    }
+    if (matches) {
+      overlapCount = len;
+      break;
+    }
+  }
+
+  if (overlapCount > 0) {
+    const mergedLines = [...lines1.slice(0, lines1.length - overlapCount)];
+    for (let i = 0; i < overlapCount; i++) {
+      const l1 = lines1[lines1.length - overlapCount + i];
+      const l2 = lines2[i];
+      mergedLines.push(mergeSingleLine(l1, l2));
+    }
+    mergedLines.push(...lines2.slice(overlapCount));
+    return mergedLines.join("\n");
+  }
+
+  const l1 = lines1[lines1.length - 1];
+  const l2 = lines2[0];
+  const idx1 = l1.indexOf(":");
+  const idx2 = l2.indexOf(":");
+  if (idx1 !== -1 && idx2 !== -1) {
+    const speaker1 = l1.substring(0, idx1).trim();
+    const speaker2 = l2.substring(0, idx2).trim();
+    if (speaker1 === speaker2) {
+      const mergedLine = mergeSingleLine(l1, l2);
+      const mergedLines = [...lines1.slice(0, lines1.length - 1), mergedLine, ...lines2.slice(1)];
+      return mergedLines.join("\n");
+    }
+  } else if (idx1 === -1 && idx2 === -1) {
+    const mergedLine = mergeWords(l1, l2);
+    const mergedLines = [...lines1.slice(0, lines1.length - 1), mergedLine, ...lines2.slice(1)];
+    return mergedLines.join("\n");
+  }
+
+  return s1 + "\n" + s2;
 };
 
 const renderStageIcon = (key) => {
@@ -339,16 +428,6 @@ const App = () => {
     return Array.from(unanswered);
   };
 
-  // Build list of active questions (only from categories that still have no answers)
-  const getActiveQuestions = () => {
-    const unansweredCategories = getUnansweredCategories();
-    let active = [];
-    for (const cat of unansweredCategories) {
-      active.push(...CATEGORIES[cat]);
-    }
-    return active;
-  };
-
   // Get answered count and status for a MEDDPICC stage
   const getCategoryStatus = (stage) => {
     const qList = stage.questions;
@@ -539,13 +618,11 @@ const App = () => {
         .map(s => s.trim())
         .filter((s, i, arr) => s && arr.indexOf(s) === i) // Simple de-duplicate of sentences
         .join(". ");
-
       const activeAnswers = currentAnswers || answersRef.current;
       if (cleanTranscript) {
         setIsLoading(true);
         if (storeNote === "Y") {
           const response = await getWrapupAssistant(cleanTranscript, activeAnswers)
-          console.log("response", response)
           if (response) {
             // Map structured wrap-up response to standard DB fields for compatibility
             const mappedWhyChange = `
@@ -719,6 +796,7 @@ const App = () => {
       setIsLoading(false);
     }
   };
+
   if (!isCookieChecked) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-50">

@@ -182,6 +182,7 @@ Structured output required:
 `;
 
   try {
+    const cacheKey = await getHash(systemPrompt);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -190,9 +191,14 @@ Structured output required:
       ],
       response_format: { type: "json_object" },
       temperature: 0.3,
+      prompt_cache_retention: "24h",
+      prompt_cache_key: cacheKey,
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
+    const usage = completion.usage;
+    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
+    console.log(`[Q4Magic Cache Check For getMeetingSummary] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);
@@ -265,6 +271,7 @@ Return:
 `;
 
   try {
+    const cacheKey = await getHash(systemPrompt);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -273,9 +280,14 @@ Return:
       ],
       response_format: { type: "json_object" },
       temperature: 0.3,
+      prompt_cache_retention: "24h",
+      prompt_cache_key: cacheKey,
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
+    const usage = completion.usage;
+    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
+    console.log(`[Q4Magic Cache Check getMeetingNotes] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);
@@ -351,6 +363,7 @@ JSON Schema Output:
 `;
 
   try {
+    const cacheKey = await getHash(systemPrompt);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -359,9 +372,14 @@ JSON Schema Output:
       ],
       response_format: { type: "json_object" },
       temperature: 0.3,
+      prompt_cache_retention: "24h",
+      prompt_cache_key: cacheKey,
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
+    const usage = completion.usage;
+    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
+    console.log(`[Q4Magic Cache Check getWrapupAssistant] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);

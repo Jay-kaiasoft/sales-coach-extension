@@ -36,13 +36,13 @@ function isMeetingPage() {
     // Check if we are in the lobby.
     // Standard lobby selectors, plus checks for buttons with "Join now", "Ask to join" or localized equivalents
     const isLobby = !!(
-      document.querySelector('[jsname="Q8S7wb"]') || 
+      document.querySelector('[jsname="Q8S7wb"]') ||
       document.querySelector('[jsname="j97Atc"]') ||
       Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => {
         const text = (el.innerText || "").toLowerCase();
         const ariaLabel = (el.getAttribute('aria-label') || "").toLowerCase();
         return text.includes("join now") || text.includes("ask to join") ||
-               ariaLabel.includes("join now") || ariaLabel.includes("ask to join");
+          ariaLabel.includes("join now") || ariaLabel.includes("ask to join");
       })
     );
 
@@ -215,7 +215,69 @@ function findCCButton() {
   return null;
 }
 
+function getSpeakerForCaptionNode(node, platform) {
+  let parent = node.parentElement;
+  if (platform === 'MEET') {
+    // 1. Try known classes first
+    while (parent) {
+      if (parent.getAttribute('aria-label')?.includes('Captions')) break;
+      const nameEl = parent.querySelector('.NWpY1d, .zs7s8d');
+      if (nameEl && nameEl !== node) {
+        return nameEl.innerText.trim();
+      }
+      parent = parent.parentElement;
+    }
+
+    // 2. Structural fallback: Find sibling container and extract short name text
+    parent = node.parentElement;
+    while (parent) {
+      const isCaptionRegion = parent.getAttribute('aria-label')?.includes('Captions') ||
+        parent.classList.contains('vNKgIf') ||
+        parent.classList.contains('UDinHf');
+      if (isCaptionRegion) break;
+
+      for (const child of parent.children) {
+        if (child.contains(node)) continue;
+        const text = child.innerText.trim();
+        if (text && text.length > 0 && text.length < 50 && !text.includes('\n')) {
+          return text;
+        }
+      }
+      parent = parent.parentElement;
+    }
+  } else if (platform === 'TEAMS') {
+    // 1. Try known classes/attributes first
+    while (parent) {
+      if (parent.getAttribute('data-tid')?.includes('closed-caption-v2-virtual-list-content')) break;
+      const nameEl = parent.querySelector('[data-tid="author"], [data-tid*="author"], .ui-chat__message__author');
+      if (nameEl && nameEl !== node) {
+        return nameEl.innerText.trim();
+      }
+      parent = parent.parentElement;
+    }
+
+    // 2. Structural fallback
+    parent = node.parentElement;
+    while (parent) {
+      const isListContent = parent.getAttribute('data-tid')?.includes('closed-caption-v2-virtual-list-content') ||
+        parent.classList.contains('closed-caption-renderer-wrapper');
+      if (isListContent) break;
+
+      for (const child of parent.children) {
+        if (child.contains(node)) continue;
+        const text = child.innerText.trim();
+        if (text && text.length > 0 && text.length < 50 && !text.includes('\n')) {
+          return text;
+        }
+      }
+      parent = parent.parentElement;
+    }
+  }
+  return null;
+}
+
 function findCaptionText() {
+  let nodes = [];
   if (currentPlatform === 'MEET') {
     const preciseSelectors = [
       '[aria-label="Captions"] .ygicle',
@@ -223,22 +285,48 @@ function findCaptionText() {
       '.ygicle',
       '.VbkSUe'
     ];
-    const preciseNodes = document.querySelectorAll(preciseSelectors.join(', '));
-    if (preciseNodes.length > 0) {
-      return Array.from(preciseNodes).map(n => n.innerText).join(" ");
-    }
+    nodes = Array.from(document.querySelectorAll(preciseSelectors.join(', ')));
   } else if (currentPlatform === 'TEAMS') {
     const preciseSelectors = [
       '[data-tid="closed-caption-text"]',
       '[data-tid*="closed-caption-text"]',
       '.closed-caption-text'
     ];
-    const preciseNodes = document.querySelectorAll(preciseSelectors.join(', '));
-    if (preciseNodes.length > 0) {
-      return Array.from(preciseNodes).map(n => n.innerText).join(" ");
+    nodes = Array.from(document.querySelectorAll(preciseSelectors.join(', ')));
+  }
+
+  if (nodes.length === 0) return "";
+
+  // Group consecutive nodes by speaker
+  const groups = [];
+  let currentGroup = null;
+
+  for (const node of nodes) {
+    const text = (node.innerText || "").trim();
+    if (!text) continue;
+
+    const speaker = getSpeakerForCaptionNode(node, currentPlatform) || "Speaker";
+
+    if (currentGroup && currentGroup.speaker === speaker) {
+      currentGroup.texts.push(text);
+    } else {
+      if (currentGroup) {
+        groups.push(currentGroup);
+      }
+      currentGroup = {
+        speaker,
+        texts: [text]
+      };
     }
   }
-  return "";
+  if (currentGroup) {
+    groups.push(currentGroup);
+  }
+
+  return groups.map(g => {
+    const combinedText = g.texts.join(" ");
+    return `${g.speaker}: ${combinedText}`;
+  }).join("\n");
 }
 
 // --- CAPTION SCRAPING ---
