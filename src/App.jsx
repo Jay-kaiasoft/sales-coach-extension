@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Autocomplete, TextField, Typography, Button } from '@mui/material';
+import { Autocomplete, TextField, Typography, Button, Tooltip, Accordion } from '@mui/material';
 import { getCookie } from './utils/cookieHelper';
 import Login from './components/Login';
 import CaptionWarning from './components/CaptionWarning';
@@ -17,8 +17,9 @@ import {
   NextSteps_Questions,
   getMeetingNotes,
   getWrapupAssistant,
+  extractCurrentEnvironment,
 } from './services/openai';
-import { getOpportunitiesByCustomerId, updateOpportunityData, createOpportunityData } from './services/opportunitiesService';
+import { getOpportunitiesByCustomerId, updateOpportunityData, createOpportunityData, checkOpportunity } from './services/opportunitiesService';
 import OpportunityWarning from './components/OpportunityWarning';
 
 // Group questions by category matching MEDDPICC letters
@@ -293,6 +294,40 @@ const cleanStringForCompare = (str) => {
     .trim();
 };
 
+const mapDynamicCurrentEnvFromAnswers = async (capturedAnswers, oppId) => {
+  if (!capturedAnswers || !oppId) return null;
+
+  const getAnswerForQuestion = (answers, question) => {
+    if (!answers || !question) return "";
+    const cleanedQuestion = cleanStringForCompare(question);
+    const foundKey = Object.keys(answers).find(key => cleanStringForCompare(key) === cleanedQuestion);
+    return foundKey ? answers[foundKey] : "";
+  };
+
+  const answersList = CURRENTENVIRONMENT_Questions?.map(q => getAnswerForQuestion(capturedAnswers, q));
+  const combinedText = answersList.filter(Boolean).join(" ").trim();
+  if (!combinedText) {
+    return null;
+  }
+
+  try {
+    const rawResult = await extractCurrentEnvironment(combinedText);
+    if (!rawResult || !Array.isArray(rawResult.result) || rawResult.result.length === 0) {
+      return null;
+    }
+
+    // Map each extracted solution to include the oppId and stringify the vendors array
+    return rawResult?.result?.map(item => ({
+      oppId: oppId,
+      solution: item.solution || "",
+      vendors: JSON.stringify(item.vendors || [])
+    }));
+  } catch (error) {
+    console.error("Error mapping dynamic current environment:", error);
+    return null;
+  }
+};
+
 const App = () => {
   const [token, setToken] = useState(undefined);
   const [userInfo, setUserInfo] = useState(null);
@@ -320,16 +355,24 @@ const App = () => {
   const [isMeetingActive, setIsMeetingActive] = useState(true);
 
   // MEDDPICC States
-  const [activeCategoryKey, setActiveCategoryKey] = useState('BusinessValue');
+  const [activeCategoryKey, setActiveCategoryKey] = useState('Why_Do_Anything');
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [isMeddpiccCollapsed, setIsMeddpiccCollapsed] = useState(false);
 
   const [finalSummary, setFinalSummary] = useState(null);
   const [meetingCode, setMeetingCode] = useState(null);
-  const [participants, setParticipants] = useState(null);
   const [customerId, setCustomerId] = useState(getInitialCustomerId());
   const [opportunitys, setOpportunitys] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [selectedOpportunityData, setSelectedOpportunityData] = useState(null);
+  const [isOppSelectionDisabled, setIsOppSelectionDisabled] = useState(false);
+
+  useEffect(() => {
+    if (isCcActive && selectedOpportunity) {
+      setIsOppSelectionDisabled(true);
+    }
+  }, [isCcActive, selectedOpportunity]);
+
   const [newOppName, setNewOppName] = useState('');
 
   const bottomRef = useRef(null);
@@ -338,6 +381,7 @@ const App = () => {
   const transcriptRef = useRef("");
   const answersRef = useRef({});
   const opportunityRef = useRef(null);
+  const selectedOpportunityDataRef = useRef(null);
   const customerIdRef = useRef(getInitialCustomerId());
   const summaryGeneratedRef = useRef(false);
   const keyContactsBackupRef = useRef([]);
@@ -398,6 +442,10 @@ const App = () => {
   }, [selectedOpportunity]);
 
   useEffect(() => {
+    selectedOpportunityDataRef.current = selectedOpportunityData;
+  }, [selectedOpportunityData]);
+
+  useEffect(() => {
     customerIdRef.current = customerId;
   }, [customerId]);
 
@@ -407,25 +455,6 @@ const App = () => {
     const cleanedQuestion = cleanStringForCompare(question);
     const foundKey = Object.keys(answers).find(key => cleanStringForCompare(key) === cleanedQuestion);
     return foundKey ? answers[foundKey] : undefined;
-  };
-
-  // Helper: determine unanswered categories
-  const getUnansweredCategories = () => {
-    const unanswered = new Set(Object.keys(CATEGORIES));
-    for (const question in capturedAnswers) {
-      const ans = capturedAnswers[question];
-      if (ans && ans.trim() !== "") {
-        // Find which category this question belongs to and mark it as answered
-        for (const [cat, questions] of Object.entries(CATEGORIES)) {
-          const hasMatch = questions.some(q => cleanStringForCompare(q) === cleanStringForCompare(question));
-          if (hasMatch) {
-            unanswered.delete(cat);
-            break;
-          }
-        }
-      }
-    }
-    return Array.from(unanswered);
   };
 
   // Get answered count and status for a MEDDPICC stage
@@ -469,23 +498,15 @@ const App = () => {
   }, []);
 
   const getActiveQuestionsFromRef = () => {
-    const unanswered = new Set(Object.keys(CATEGORIES));
     const currentAnswers = answersRef.current || {};
-    for (const question in currentAnswers) {
-      const ans = currentAnswers[question];
-      if (ans && ans.trim() !== "") {
-        for (const [cat, questions] of Object.entries(CATEGORIES)) {
-          const hasMatch = questions.some(q => cleanStringForCompare(q) === cleanStringForCompare(question));
-          if (hasMatch) {
-            unanswered.delete(cat);
-            break;
-          }
+    const active = [];
+    for (const [cat, questions] of Object.entries(CATEGORIES)) {
+      for (const question of questions) {
+        const ans = getAnswerForQuestion(currentAnswers, question);
+        if (!ans || ans.trim() === "") {
+          active.push(question);
         }
       }
-    }
-    const active = [];
-    for (const cat of Array.from(unanswered)) {
-      active.push(...CATEGORIES[cat]);
     }
     return active;
   };
@@ -534,6 +555,13 @@ const App = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [tips]);
 
+  const handleGetCheckOpportunity = async (id) => {
+    const res = await checkOpportunity(id)
+    if (res.data.status === 200) {
+      setSelectedOpportunityData(res?.data?.result)
+    }
+  }
+
   const handleCreateOpportunity = async () => {
     if (!newOppName.trim()) return;
     try {
@@ -549,6 +577,7 @@ const App = () => {
             const createdId = res?.data?.result;
             const newlyCreatedOpp = newOptions.find(o => o.id === createdId);
             setSelectedOpportunity(newlyCreatedOpp || null);
+            handleGetCheckOpportunity(createdId)
           }
         }
       }
@@ -565,27 +594,27 @@ const App = () => {
     if (activeQuestions.length === 0) return;
     setIsLoading(true);
     try {
-      const result = await getSalesCoaching(text, activeQuestions);
+      const result = await getSalesCoaching(text);
       if (summaryGeneratedRef.current) return;
       if (result) {
         // if (result.coaching) {
         //   setTips(prev => [...prev, result.coaching]);
         // }
-        if (result.extracted_answers && result?.extracted_answers?.length > 0) {
+        if (result?.extracted_answers && result?.extracted_answers?.length > 0) {
           let updatedAnswers;
           setCapturedAnswers(prev => {
             const next = { ...prev };
             const allQuestionsList = Object.values(CATEGORIES).flat();
-            result.extracted_answers.forEach(item => {
+            result?.extracted_answers?.forEach(item => {
               // Update with latest answer (overwrite if we have new detail)
-              if (item.answer && item.answer.trim()) {
+              if (item?.answer && item?.answer?.trim()) {
                 const matchedQuestion = allQuestionsList.find(q =>
-                  cleanStringForCompare(q) === cleanStringForCompare(item.question)
+                  cleanStringForCompare(q) === cleanStringForCompare(item?.question)
                 );
                 if (matchedQuestion) {
-                  next[matchedQuestion] = item.answer;
+                  next[matchedQuestion] = item?.answer;
                 } else {
-                  next[item.question] = item.answer;
+                  next[item?.question] = item?.answer;
                 }
               }
             });
@@ -713,14 +742,22 @@ const App = () => {
             // }
           }
           const res = await getMeetingNotes(cleanTranscript, activeAnswers);
-          console.log("[Q4Magic] Meeting Notes:", res);
           let payload = {
             ...res,
             cleanTranscript: cleanTranscript,
             opportunityId: opportunityRef.current?.id,
             customerId: customerIdRef.current,
             introduction: introductionRef.current,
-            storeNote: storeNote
+            storeNote: storeNote,
+            businessValueStatus: 1,
+            whyDoAnythingStatus: 1,
+            nextStepsStatus: 1,
+            currentEnvironmentStatus: 1,
+            opportunityContactStatus: 1,
+          }
+          const currentEnvResultForPayload = await mapDynamicCurrentEnvFromAnswers(activeAnswers, opportunityRef.current?.id);
+          if (currentEnvResultForPayload) {
+            payload.currentEnv = currentEnvResultForPayload;
           }
           if (opportunityRef.current?.id && customerIdRef.current) {
             const summaryStore = await updateOpportunityData(payload)
@@ -764,21 +801,28 @@ const App = () => {
             // if (storeNote === "Y" && Array.isArray(keyContactsBackupRef.current)) {
             //   processedKeyContacts = keyContactsBackupRef.current;
             // }
-
             let finalSummaryData = {
               ...summary,
+              currentEnv: null,
               Why_Do_Anything: `<p>${summary?.Why_Do_Anything || ""}</p>`,
               BusinessValue: `<p>${summary.BusinessValue || ""}</p>`,
               DecisionMap: `${summary.DecisionMap || ""}`,
-              CurrentEnvironment: `${summary.CurrentEnvironment || ""}`,
               KeyContacts: processedKeyContacts,
               opportunityId: opportunityRef.current?.id,
               customerId: customerIdRef.current,
               cleanTranscript: cleanTranscript,
               introduction: introductionRef.current,
-              storeNote: storeNote
+              storeNote: storeNote,
+              businessValueStatus: selectedOpportunityDataRef.current?.BusinessValue,
+              whyDoAnythingStatus: selectedOpportunityDataRef.current?.WhyDoAnything,
+              nextStepsStatus: selectedOpportunityDataRef.current?.NextSteps,
+              currentEnvironmentStatus: selectedOpportunityDataRef.current?.CurrentEnvironment,
+              opportunityContactStatus: selectedOpportunityDataRef.current?.opportunityContact,
             }
-            // setFinalSummary(finalSummaryData);
+            const currentEnvResultForSummary = await mapDynamicCurrentEnvFromAnswers(activeAnswers, opportunityRef.current?.id);
+            if (currentEnvResultForSummary) {
+              finalSummaryData.currentEnv = currentEnvResultForSummary;
+            }
             setTips([]);
             if (opportunityRef.current?.id && customerIdRef.current) {
               const response = await updateOpportunityData(finalSummaryData)
@@ -829,7 +873,7 @@ const App = () => {
     <>
       <div className="flex flex-col h-screen bg-premium-50 font-sans text-premium-900 border-l border-premium-100 relative overflow-hidden transition-all duration-300">
         {/* Premium Header */}
-        <header className="px-6 py-4 bg-white border-b border-premium-100 flex items-center justify-between shadow-sm z-10">
+        <header className="px-6 py-2 bg-white border-b border-premium-100 flex items-center justify-between shadow-sm z-10">
           <div className="flex-1">
             <img src="/images/logo/360Pipe_logo.png" alt="360Pipe Logo" className="h-7" />
           </div>
@@ -877,7 +921,7 @@ const App = () => {
         ) : (
           <>
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto p-6 flex flex-col space-y-8 custom-scrollbar">
+            <main className="flex-1 overflow-y-auto p-4 flex flex-col space-y-4 custom-scrollbar">
               {selectedOpportunity?.title?.includes("+ New Opportunity") ? (
                 <div className="flex flex-col space-y-4">
                   <h2 className="text-sm font-black tracking-tighter text-premium-900 uppercase">Create New Opportunity</h2>
@@ -917,16 +961,20 @@ const App = () => {
                 </div>
               ) : (
                 <>
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <label className="text-[10px] font-bold text-premium-400 uppercase tracking-widest mb-2 block">
                       Select Opportunity
                     </label>
                     <Autocomplete
+                      disabled={isOppSelectionDisabled}
                       options={[{ title: '+ New Opportunity', id: 'new_opp' }, ...(opportunitys || [])]}
                       getOptionLabel={(option) => option.title || ""}
                       value={selectedOpportunity}
                       onChange={(event, newValue) => {
                         setSelectedOpportunity(newValue);
+                        if (newValue) {
+                          handleGetCheckOpportunity(newValue?.id);
+                        }
                       }}
                       renderInput={(params) => (
                         <TextField
@@ -1021,9 +1069,9 @@ const App = () => {
 
                         {/* Expandable MEDDPICC Section */}
                         {!isMeddpiccCollapsed && (
-                          <div className="p-5 space-y-6">
+                          <div className="p-4 space-y-3.5">
                             {/* Circular Tabs Row */}
-                            <div className="relative flex items-center justify-between w-full px-2 py-4">
+                            <div className="relative flex items-center justify-between w-full px-2 py-2">
                               {/* Dash Connector Line */}
                               <div className="absolute top-1/2 left-4 right-4 h-0.5 border-t border-dashed border-slate-200 -translate-y-1/2 z-0"></div>
 
@@ -1070,7 +1118,7 @@ const App = () => {
                             </div>
 
                             {/* Selected Tab Label Name */}
-                            <div className="text-center -mt-2">
+                            <div className="text-center -mt-1.5">
                               <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">
                                 {MEDDPICC_STAGES.find(s => s.key === activeCategoryKey)?.label}
                               </span>
@@ -1085,18 +1133,18 @@ const App = () => {
                               const indexPrefix = MEDDPICC_STAGES.indexOf(activeStage) + 1;
 
                               return (
-                                <div className="space-y-5 animate-slide-in">
+                                <div className="space-y-3 animate-slide-in">
                                   {/* Header Info */}
-                                  <div className="flex items-start space-x-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                                  <div className="flex items-start space-x-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center">
                                       {renderStageIcon(activeStage.key)}
                                     </div>
                                     <div className="flex-1 space-y-1">
                                       <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-black text-premium-900">
+                                        <h3 className="text-sm font-black text-premium-900">
                                           {indexPrefix}. {activeStage.title}
                                         </h3>
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isCompleted
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isCompleted
                                           ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                           : answeredCount > 0
                                             ? 'bg-amber-50 text-amber-600 border border-amber-100'
@@ -1109,75 +1157,112 @@ const App = () => {
                                               : 'Active'}
                                         </span>
                                       </div>
-                                      <p className="text-[10px] font-medium text-premium-400 leading-normal">
+                                      <p className="text-xs font-medium text-premium-400 leading-normal">
                                         {activeStage.description}
                                       </p>
                                     </div>
                                   </div>
 
                                   {/* Questions List */}
-                                  <div className="space-y-3">
-                                    <h4 className="text-[9px] font-black text-premium-400 uppercase tracking-widest">
-                                      TOP QUESTIONS
-                                    </h4>
+                                  {
+                                    activeStage?.questions?.length > 0 && (
+                                      <div className="space-y-3">
+                                        <h4 className="text-[9px] font-black text-premium-400 uppercase tracking-widest">
+                                          TOP QUESTIONS
+                                        </h4>
 
-                                    <div className="space-y-2.5">
-                                      {activeStage.questions
-                                        .filter((question) => {
-                                          const answer = getAnswerForQuestion(capturedAnswers, question);
-                                          return !(answer && answer.trim());
-                                        })
-                                        .map((question, qIdx) => {
-                                          const answer = getAnswerForQuestion(capturedAnswers, question);
-                                          const isAnswered = !!(answer && answer.trim());
+                                        <div className="space-y-2.5">
+                                          {[...(activeStage?.questions || [])]
+                                            .sort((qA, qB) => {
+                                              const ansA = getAnswerForQuestion(capturedAnswers, qA);
+                                              const isAnsweredA = !!(ansA && ansA.trim());
+                                              const ansB = getAnswerForQuestion(capturedAnswers, qB);
+                                              const isAnsweredB = !!(ansB && ansB.trim());
+                                              if (isAnsweredA && !isAnsweredB) return 1;
+                                              if (!isAnsweredA && isAnsweredB) return -1;
+                                              return 0;
+                                            })
+                                            .map((question, qIdx) => {
+                                              const answer = getAnswerForQuestion(capturedAnswers, question);
+                                              const isAnswered = !!(answer && answer.trim());
+                                              const isExpanded = expandedQuestion === question;
 
-                                          return (
-                                            <div
-                                              key={qIdx}
-                                              className={`rounded-xl border transition-all duration-200 overflow-hidden ${isAnswered
-                                                ? 'border-emerald-100 bg-emerald-50/5 hover:border-emerald-200'
-                                                : 'border-slate-100 bg-white hover:border-slate-200'
-                                                }`}
-                                            >
-                                              {/* Question Row */}
-                                              <div
-                                                className="p-3.5 flex items-center justify-between select-none"
-                                              >
-                                                <div className="flex items-center space-x-3 pr-4">
-                                                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
-                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                                    : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
-                                                    }`}>
-                                                    {qIdx + 1}
+                                              return (
+                                                <div
+                                                  key={qIdx}
+                                                  className={`rounded-xl border transition-all duration-200 overflow-hidden ${isAnswered
+                                                    ? 'border-emerald-300 bg-emerald-50/5 hover:border-emerald-400'
+                                                    : 'border-slate-100 bg-white hover:border-slate-200'
+                                                    }`}
+                                                >
+                                                  {/* Question Row */}
+                                                  <div
+                                                    className="p-3.5 flex items-center justify-between select-none cursor-pointer hover:bg-slate-50/40 transition-colors"
+                                                    onClick={() => setExpandedQuestion(isExpanded ? null : question)}
+                                                  >
+                                                    <div className="flex items-center space-x-3 pr-4">
+                                                      <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                        : 'bg-indigo-50/50 text-indigo-600 border-indigo-200'
+                                                        }`}>
+                                                        {qIdx + 1}
+                                                      </div>
+                                                      <p className={`text-sm font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
+                                                        }`}>
+                                                        {question}
+                                                      </p>
+                                                    </div>
+
+                                                    <div className="shrink-0 flex items-center space-x-2.5">
+                                                      {/* Button to mark as answered */}
+                                                      {!isAnswered && (
+                                                        <Tooltip title="Mark as Answered" placement='bottom'>
+                                                          <button
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              const nextAnswers = { ...capturedAnswers, [question]: "Checked" };
+                                                              setCapturedAnswers(nextAnswers);
+                                                              generateFinalSummary("N", nextAnswers);
+                                                            }}
+                                                            className="px-2 py-1 text-[9px] font-bold text-green-600 hover:text-white bg-green-50 hover:bg-green-600 border border-green-100 hover:border-green-600 rounded-md cursor-pointer transition-all duration-200 flex items-center space-x-1"
+                                                          >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                          </button>
+                                                        </Tooltip>
+                                                      )}
+                                                      {/* Arrow Indicator */}
+                                                      <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                      >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                      </svg>
+                                                    </div>
                                                   </div>
-                                                  <p className={`text-xs font-semibold leading-relaxed ${isAnswered ? 'text-slate-800' : 'text-slate-500 font-medium'
-                                                    }`}>
-                                                    {question}
-                                                  </p>
-                                                </div>
 
-                                                <div className="shrink-0 flex items-center space-x-1.5">
-                                                  {/* Checkbox to mark as answered */}
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={isAnswered}
-                                                    onChange={(e) => {
-                                                      e.stopPropagation();
-                                                      if (e.target.checked) {
-                                                        const nextAnswers = { ...capturedAnswers, [question]: "Checked" };
-                                                        setCapturedAnswers(nextAnswers);
-                                                        generateFinalSummary("N", nextAnswers);
-                                                      }
-                                                    }}
-                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded cursor-pointer"
-                                                  />
+                                                  {/* Accordion Details (Answer Panel) */}
+                                                  {isExpanded && (
+                                                    <div className="px-3.5 pb-3.5 pt-0 border-t border-slate-50 bg-slate-50/20 text-xs text-slate-600 animate-slide-in">
+                                                      <div className="font-bold text-[9px] text-premium-400 uppercase tracking-widest mt-2 mb-1">
+                                                        ANSWER
+                                                      </div>
+                                                      <p className="leading-relaxed font-semibold text-slate-700">
+                                                        {isAnswered ? answer : "No answer captured yet. This will update automatically as the meeting progresses."}
+                                                      </p>
+                                                    </div>
+                                                  )}
                                                 </div>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                    </div>
-                                  </div>
+                                              );
+                                            })}
+                                        </div>
+                                      </div>
+                                    )
+                                  }
                                 </div>
                               );
                             })()}

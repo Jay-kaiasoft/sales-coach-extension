@@ -93,15 +93,15 @@ export async function getSalesCoaching(transcriptChunk, questionsToTrack = ALL_Q
   const systemPrompt = `
     You are a real-time sales meeting assistant. 
     Your job is to analyze the meeting transcript and determine whether the discovery questions 
-    below have been answered. 
+    below have been answered by the customer/prospect/buyer. 
     Rules: 
-    ● Only use information explicitly stated in the transcript. 
-    ● Mark each question as Complete, In Progress, or Not Started. 
-    ● Complete = clearly answered. 
-    ● In Progress = partially answered. 
-    ● Not Started = no meaningful discussion. 
-    ● Provide brief evidence from the transcript. 
-    ● Recommend the next best unanswered question.
+    - Only use information explicitly stated in the transcript. 
+    - A question is only considered answered if the customer/prospect/buyer actually answers or provides concrete information about that question.
+    - If the question is only asked or mentioned by the seller but not answered, or if a speaker mentions the topic of the question without providing any specific information/answer, DO NOT include the question in the "extracted_answers" list.
+    - Do NOT fabricate or generate placeholder/default statements (such as "The urgency to solve this issue is being discussed, but no specific details have been provided", "No details were provided", "The topic is being discussed", etc.). If no meaningful/substantial answer/information is provided by the customer in the transcript, do not mark the question as answered, and do NOT include it in "extracted_answers".
+    - A question must not be marked as answered just because the seller asked it.
+    - Provide a concise summary of the participant's actual answer (max 40 words).
+    - If a question is unanswered, partially answered, or the provided answer is insufficient, leave the answer field blank and set the status to "pending".
 
     QUESTIONS TO TRACK (Verify if these specific questions are answered in the transcript):
     ${questionsToTrack.map((q, idx) => `${idx + 1}. "${q}"`).join('\n    ')}
@@ -137,9 +137,8 @@ export async function getSalesCoaching(transcriptChunk, questionsToTrack = ALL_Q
     const responseText = completion.choices[0].message.content;
     const responseJson = JSON.parse(responseText);
     // Log prompt caching details to verify it is working
-    const usage = completion.usage;
-    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
-    console.log(`[Q4Magic Cache Check] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
+
+
     // console.log("[Q4Magic] AI JSON Response:", responseJson);
     return responseJson;
   } catch (error) {
@@ -196,9 +195,8 @@ Structured output required:
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
-    const usage = completion.usage;
-    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
-    console.log(`[Q4Magic Cache Check For getMeetingSummary] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
+
+
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);
@@ -285,9 +283,8 @@ Return:
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
-    const usage = completion.usage;
-    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
-    console.log(`[Q4Magic Cache Check getMeetingNotes] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
+
+
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);
@@ -377,12 +374,75 @@ JSON Schema Output:
     });
 
     const summaryJson = JSON.parse(completion.choices[0].message.content);
-    const usage = completion.usage;
-    const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0;
-    console.log(`[Q4Magic Cache Check getWrapupAssistant] Total Prompt Tokens: ${usage?.prompt_tokens ?? 0}, Cached Tokens: ${cachedTokens} (${cachedTokens > 0 ? 'Cache Hit! 🚀' : 'Cache Miss ⏳'})`);
+
+
     return summaryJson;
   } catch (error) {
     console.error("Final summary error:", error);
+    return null;
+  }
+}
+
+export async function extractCurrentEnvironment(answersText) {
+  if (!ENV_API_KEY) {
+    console.error("[Q4Magic] No API Key found for dynamic extraction!");
+    return null;
+  }
+
+  const systemPrompt = `
+You are an AI assistant that extracts software/process solutions and their vendors from sales conversation notes.
+Analyze the text provided and identify:
+1. The general category of solutions mentioned (e.g., "CRM", "Notes", "Competitors", "Database", "Calendar").
+2. The specific vendors or tools mentioned under each category (e.g., "HubSpot", "Excel", "Word", "Facebook").
+
+Rules:
+- Group vendors under their respective solution category.
+- For all vendors that are explicitly mentioned as used, being considered, or discussed, set isChecked to true by default.
+- Return a JSON object with a single key "result" which is an array of solution objects.
+- Only include solutions and vendors that are explicitly mentioned in the text.
+- Do NOT invent or add any placeholder solutions or vendors if they are not in the text.
+- If no tools or vendors are mentioned, return {"result": []}.
+
+JSON Output Format:
+{
+  "result": [
+    {
+      "solution": "CRM",
+      "vendors": [
+        { "isChecked": true, "value": "HubSpot" },
+        { "isChecked": true, "value": "Salesforce" }
+      ]
+    },
+    {
+      "solution": "Notes",
+      "vendors": [
+        { "isChecked": true, "value": "Excel" },
+        { "isChecked": true, "value": "Word" }
+      ]
+    }
+  ]
+}
+`;
+
+  try {
+    const cacheKey = await getHash(systemPrompt);
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Text: ${answersText}` },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      prompt_cache_retention: "24h",
+      prompt_cache_key: cacheKey,
+    });
+
+    const responseText = completion.choices[0].message.content;
+    const responseJson = JSON.parse(responseText);
+    return responseJson;
+  } catch (error) {
+    console.error("Dynamic extraction error:", error);
     return null;
   }
 }

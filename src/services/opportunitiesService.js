@@ -55,3 +55,15 @@ export const createOpportunityData = async (data) => {
         });
     });
 };
+
+export const checkOpportunity = async (id) => {
+    try {
+        const token = await getCookie('sales-coach-extension-token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${opportunityURL}/checkOpportunity/${id}`, { headers });
+        return response;
+    } catch (error) {
+        console.error("Error fetching opportunities:", error);
+        throw error;
+    }
+};

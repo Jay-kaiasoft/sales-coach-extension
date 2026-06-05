@@ -10,8 +10,15 @@ const CaptionWarning = ({ active }) => {
           </svg>
         </div>
         <div className="ml-3">
-          <p className="text-sm text-amber-700 font-medium">
-            Please turn on <span className="font-bold">Captions</span> to start coaching.
+          <p className="text-sm text-amber-700 font-medium flex items-center flex-wrap">
+            Please turn on
+            <span className="font-bold inline-flex items-center mx-1.5 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 text-amber-800">
+              <svg className="h-3.5 w-3.5 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1c0 .55-.45 1-1 1h-3c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1z" />
+              </svg>
+              Captions
+            </span>
+            to start getting answers.
           </p>
         </div>
       </div>
