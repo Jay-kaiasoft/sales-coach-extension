@@ -366,12 +366,31 @@ const App = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [selectedOpportunityData, setSelectedOpportunityData] = useState(null);
   const [isOppSelectionDisabled, setIsOppSelectionDisabled] = useState(false);
+  const [showCcOppWarning, setShowCcOppWarning] = useState(false);
+  const warningTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (isCcActive && selectedOpportunity) {
       setIsOppSelectionDisabled(true);
     }
   }, [isCcActive, selectedOpportunity]);
+
+  useEffect(() => {
+    if (selectedOpportunity && showCcOppWarning) {
+      setShowCcOppWarning(false);
+      if (warningTimeoutRef.current) {
+        clearTimeout(warningTimeoutRef.current);
+      }
+    }
+  }, [selectedOpportunity, showCcOppWarning]);
+
+  useEffect(() => {
+    return () => {
+      if (warningTimeoutRef.current) {
+        clearTimeout(warningTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [newOppName, setNewOppName] = useState('');
 
@@ -387,7 +406,12 @@ const App = () => {
   const keyContactsBackupRef = useRef([]);
   const isGeneratingSummaryRef = useRef(false);
   const introductionRef = useRef("");
+  const isCcActiveRef = useRef(false);
   const [introduction, setIntroduction] = useState("");
+
+  useEffect(() => {
+    isCcActiveRef.current = isCcActive;
+  }, [isCcActive]);
 
   useEffect(() => {
     introductionRef.current = introduction;
@@ -482,7 +506,17 @@ const App = () => {
       } else if (event.data.type === 'SET_MEETING_CODE') {
         setMeetingCode(event.data.meetingCode);
       } else if (event.data.type === 'CC_STATUS') {
+        const wasCcActive = isCcActiveRef.current;
         setIsCcActive(event.data.active);
+        if (event.data.active && !wasCcActive && !opportunityRef.current) {
+          setShowCcOppWarning(true);
+          if (warningTimeoutRef.current) {
+            clearTimeout(warningTimeoutRef.current);
+          }
+          warningTimeoutRef.current = setTimeout(() => {
+            setShowCcOppWarning(false);
+          }, 3000);
+        }
       } else if (event.data.type === 'MEETING_END') {
         // Meeting ended – stop polling and generate final summary
         setIsMeetingActive(false);
@@ -961,7 +995,23 @@ const App = () => {
                 </div>
               ) : (
                 <>
-                  <div className="mb-4">
+                  <div className="mb-4 relative">
+                    {showCcOppWarning && (
+                      <div className="absolute top-3 right-0 mb-2 z-50 w-72 bg-amber-50 border-l-4 border-amber-400 p-3 shadow-lg rounded-xl animate-slide-in-right">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0 mt-0.5">
+                            <svg className="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-2.5">
+                            <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
+                              Please select an opportunity before starting Captions.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <label className="text-[10px] font-bold text-premium-400 uppercase tracking-widest mb-2 block">
                       Select Opportunity
                     </label>
