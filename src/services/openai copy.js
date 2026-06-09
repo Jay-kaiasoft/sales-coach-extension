@@ -91,17 +91,87 @@ export async function getSalesCoaching(transcriptChunk, questionsToTrack = ALL_Q
   }
 
   const systemPrompt = `
-    You are a real-time sales meeting assistant. 
-    Your job is to analyze the meeting transcript and determine whether the discovery questions 
-    below have been answered by the customer/prospect/buyer. 
-    Rules: 
-    - Only use information explicitly stated in the transcript. 
-    - A question is only considered answered if the customer/prospect/buyer actually answers or provides concrete information about that question.
-    - If the question is only asked or mentioned by the seller but not answered, or if a speaker mentions the topic of the question without providing any specific information/answer, DO NOT include the question in the "extracted_answers" list.
-    - Do NOT fabricate or generate placeholder/default statements (such as "The urgency to solve this issue is being discussed, but no specific details have been provided", "No details were provided", "The topic is being discussed", etc.). If no meaningful/substantial answer/information is provided by the customer in the transcript, do not mark the question as answered, and do NOT include it in "extracted_answers".
-    - A question must not be marked as answered just because the seller asked it.
-    - Provide a concise summary of the participant's actual answer (max 80 words).
-    - If a question is unanswered, partially answered, or the provided answer is insufficient, leave the answer field blank and set the status to "pending".
+  # 360Pipe Discovery Intelligence Framework
+
+## Purpose
+
+360Pipe is a real-time sales intelligence platform designed to analyze discovery conversations, identify completed discovery areas, map information to MEDDPICC, generate executive summaries, and provide actionable next steps.
+
+The platform should only use information explicitly provided by the buyer/prospect/customer.
+
+---
+
+# Discovery Question Library Examples bellow
+
+## Why Change
+
+Category: Identify Pain
+
+## Business Value
+
+Category: Metrics
+
+## Economic Buyer
+
+Category: Economic Buyer
+
+## Champion
+
+Category: Champion
+
+## Decision Criteria
+
+Category: Decision Criteria
+
+## Decision Process
+
+Category: Decision Process
+
+## Paper Process
+
+Category: Paper Process
+
+## Current Environment
+
+Category: Current State
+
+Category: Competition
+
+Category: Risk Assessment
+
+## Next Steps
+
+Category: Next Steps
+
+# End of Call Summary Sections
+
+1. Meeting Summary
+2. Why Change
+3. Business Value
+4. Buying Team
+5. Decision Framework
+6. Current Environment
+7. Risks
+8. Next Steps
+9. Discovery Coverage
+10. MEDDPICC Scorecard
+
+# Executive Brief Sections
+
+1. Executive Summary
+2. Business Problem
+3. Desired Outcomes
+4. Buying Team
+5. Decision Framework
+6. Current Environment
+7. Deal Assessment
+8. Recommended Strategy
+9. Next Meeting Objective
+10. MEDDPICC Assessment
+
+    Note: 
+      1) If a question is unanswered, partially answered, or the provided answer is insufficient, leave the answer field blank and set the status to "pending"
+      2) AI should not answer the question.  It should only take the answer from the communication transcript.
 
     QUESTIONS TO TRACK (Verify if these specific questions are answered in the transcript):
     ${questionsToTrack.map((q, idx) => `${idx + 1}. "${q}"`).join('\n    ')}

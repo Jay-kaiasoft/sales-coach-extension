@@ -358,6 +358,7 @@ const App = () => {
   const [activeCategoryKey, setActiveCategoryKey] = useState('Why_Do_Anything');
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [isMeddpiccCollapsed, setIsMeddpiccCollapsed] = useState(false);
+  const [showAllAnswers, setShowAllAnswers] = useState(false);
 
   const [finalSummary, setFinalSummary] = useState(null);
   const [meetingCode, setMeetingCode] = useState(null);
@@ -1141,28 +1142,30 @@ const App = () => {
                                 }
 
                                 return (
-                                  <button
-                                    key={stage.key}
-                                    onClick={() => {
-                                      setActiveCategoryKey(stage.key);
-                                      setExpandedQuestion(null); // reset expanded question on tab switch
-                                    }}
-                                    className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full font-black text-sm border-2 transition-all duration-200 cursor-pointer ${buttonClass}`}
-                                  >
-                                    {stage.letter}
+                                  <Tooltip title={stage?.label} placement='bottom'>
+                                    <button
+                                      key={stage.key}
+                                      onClick={() => {
+                                        setActiveCategoryKey(stage.key);
+                                        setExpandedQuestion(null); // reset expanded question on tab switch
+                                      }}
+                                      className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full font-black text-sm border-2 transition-all duration-200 cursor-pointer ${buttonClass}`}
+                                    >
+                                      {stage.letter}
 
-                                    {/* Small badge for completion / progress */}
-                                    {isCompleted && (
-                                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white border border-white font-bold">
-                                        ✓
-                                      </span>
-                                    )}
-                                    {!isCompleted && answeredCount > 0 && (
-                                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white border border-white font-bold">
-                                        {answeredCount}
-                                      </span>
-                                    )}
-                                  </button>
+                                      {/* Small badge for completion / progress */}
+                                      {isCompleted && (
+                                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white border border-white font-bold">
+                                          ✓
+                                        </span>
+                                      )}
+                                      {!isCompleted && answeredCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] text-white border border-white font-bold">
+                                          {answeredCount}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </Tooltip>
                                 );
                               })}
                             </div>
@@ -1231,6 +1234,9 @@ const App = () => {
                                               if (isAnsweredA && !isAnsweredB) return 1;
                                               if (!isAnsweredA && isAnsweredB) return -1;
                                               return 0;
+                                            })?.filter((question) => {
+                                              const answer = getAnswerForQuestion(capturedAnswers, question);
+                                              return !(answer && answer.trim())
                                             })
                                             .map((question, qIdx) => {
                                               const answer = getAnswerForQuestion(capturedAnswers, question);
@@ -1248,7 +1254,7 @@ const App = () => {
                                                   {/* Question Row */}
                                                   <div
                                                     className="p-3.5 flex items-center justify-between select-none cursor-pointer hover:bg-slate-50/40 transition-colors"
-                                                    onClick={() => setExpandedQuestion(isExpanded ? null : question)}
+                                                  // onClick={() => setExpandedQuestion(isExpanded ? null : question)}
                                                   >
                                                     <div className="flex items-center space-x-3 pr-4">
                                                       <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold ${isAnswered
@@ -1274,16 +1280,14 @@ const App = () => {
                                                               setCapturedAnswers(nextAnswers);
                                                               generateFinalSummary("N", nextAnswers);
                                                             }}
-                                                            className="px-2 py-1 text-[9px] font-bold text-green-600 hover:text-white bg-green-50 hover:bg-green-600 border border-green-100 hover:border-green-600 rounded-md cursor-pointer transition-all duration-200 flex items-center space-x-1"
+                                                            className="px-2 py-1 text-[9px] font-bold text-gray-600 hover:text-white bg-gray-50 hover:bg-gray-600 border border-gray-100 hover:border-gray-600 rounded-md cursor-pointer transition-all duration-200 flex items-center space-x-1"
                                                           >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                            </svg>
+                                                            Mark Answered
                                                           </button>
                                                         </Tooltip>
                                                       )}
                                                       {/* Arrow Indicator */}
-                                                      <svg
+                                                      {/* <svg
                                                         xmlns="http://www.w3.org/2000/svg"
                                                         className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                                                         fill="none"
@@ -1291,11 +1295,11 @@ const App = () => {
                                                         stroke="currentColor"
                                                       >
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                      </svg>
+                                                      </svg> */}
                                                     </div>
                                                   </div>
 
-                                                  {/* Accordion Details (Answer Panel) */}
+                                                  {/* Accordion Details (Answer Panel)
                                                   {isExpanded && (
                                                     <div className="px-3.5 pb-3.5 pt-0 border-t border-slate-50 bg-slate-50/20 text-xs text-slate-600 animate-slide-in">
                                                       <div className="font-bold text-[9px] text-premium-400 uppercase tracking-widest mt-2 mb-1">
@@ -1305,7 +1309,7 @@ const App = () => {
                                                         {isAnswered ? answer : "No answer captured yet. This will update automatically as the meeting progresses."}
                                                       </p>
                                                     </div>
-                                                  )}
+                                                  )} */}
                                                 </div>
                                               );
                                             })}
@@ -1697,8 +1701,29 @@ const App = () => {
                   </section>
                 </>
               )}
+              {
+                Object.keys(capturedAnswers || {}).length > 0 && (
+                  <div className="my-3 shrink-0">
+                    <button className="w-40 mx-auto text-xs bg-linear-to-br from-blue-600 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg block" onClick={() => setShowAllAnswers(!showAllAnswers)}>
+                      {showAllAnswers ? "Hide All Answers" : "Show All Answers"}
+                    </button>
+                    {
+                      showAllAnswers && (
+                        <div className="mt-3 p-3 bg-white rounded-xl border border-slate-100 max-h-60 overflow-y-auto custom-scrollbar">
+                          {Object.entries(capturedAnswers).map(([question, answer], index) => (
+                            <div key={index} className="mb-4 last:mb-0">
+                              <h3 className="text-sm font-bold text-gray-800 mb-1">{question}</h3>
+                              <p className="text-sm text-gray-800">{answer}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }
+                  </div>
+                )
+              }
               {opportunitys?.length > 0 && !selectedOpportunity && (
-                <div className="h-24 flex-shrink-0" />
+                <div className="h-24 shrink-0" />
               )}
             </main>
           </>
