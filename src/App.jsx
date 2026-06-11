@@ -632,9 +632,6 @@ const App = () => {
       const result = await getSalesCoaching(text);
       if (summaryGeneratedRef.current) return;
       if (result) {
-        // if (result.coaching) {
-        //   setTips(prev => [...prev, result.coaching]);
-        // }
         if (result?.extracted_answers && result?.extracted_answers?.length > 0) {
           let updatedAnswers;
           setCapturedAnswers(prev => {
@@ -909,8 +906,21 @@ const App = () => {
       <div className="flex flex-col h-screen bg-premium-50 font-sans text-premium-900 border-l border-premium-100 relative overflow-hidden transition-all duration-300">
         {/* Premium Header */}
         <header className="px-6 py-2 bg-white border-b border-premium-100 flex items-center justify-between shadow-sm z-10">
-          <div className="flex-1">
+          <div className="flex-1 flex items-center">
             <img src="/images/logo/360Pipe_logo.png" alt="360Pipe Logo" className="h-7" />
+            <button
+              onClick={() => setShowAllAnswers(!showAllAnswers)}
+              className={`ml-2 p-1 rounded-md transition-all duration-200 cursor-pointer ${
+                showAllAnswers 
+                  ? 'text-indigo-600 opacity-100' 
+                  : 'text-slate-400 opacity-10 hover:opacity-100 hover:text-indigo-600'
+              }`}
+              title="Dev Mode"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+            </button>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -1704,9 +1714,6 @@ const App = () => {
               {
                 Object.keys(capturedAnswers || {}).length > 0 && (
                   <div className="my-3 shrink-0">
-                    <button className="w-40 mx-auto text-xs bg-linear-to-br from-blue-600 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg block" onClick={() => setShowAllAnswers(!showAllAnswers)}>
-                      {showAllAnswers ? "Hide All Answers" : "Show All Answers"}
-                    </button>
                     {
                       showAllAnswers && (
                         <div className="mt-3 p-3 bg-white rounded-xl border border-slate-100 max-h-60 overflow-y-auto custom-scrollbar">
