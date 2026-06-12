@@ -1,39 +1,37 @@
 Why Do Anything:
-1. Question: What’s driving the urgency to solve this now?
-2. Question: How is this issue impacting the business today?
-3. Question: What happens if this problem is not addressed?
+1. What’s driving the urgency to solve this now?
+2. How is this issue impacting the business today?
+3. What happens if this problem is not addressed?
 
 Business Value:
-4. Question: If this were solved, what measurable business improvement would you expect?
-5. Question: How is this impacting revenue, productivity, time, or cost today?
-6. Question: What key business metrics are you hoping to improve?
-7. Question: What business outcomes matter most to the executive sponsor?
+4. If this were solved, what measurable business improvement would you expect?
+5. How is this impacting revenue, productivity, time, or cost today?
+6. What key business metrics are you hoping to improve?
+7. What business outcomes matter most to the executive sponsor?
 
 Economic Buyer:
-8. Question: Who ultimately approves initiatives like this?
+8. Who ultimately approves initiatives like this?
 
 Champion:
-9. Question: Who is most motivated to solve this problem?
-10. Question: Who would champion this internally?
+9. Who is most motivated to solve this problem?
+10. Who would champion this internally?
 
 Decision Criteria:
-11. Question: What business or technical requirements are most important in selecting a solution?
+11. What business or technical requirements are most important in selecting a solution?
 
 Decision Process:
-12. Question: If we mapped out the path to a final decision, what steps would need to happen and who would be involved?
+12. If we mapped out the path to a final decision, what steps would need to happen and who would be involved?
 
 Paper Process:
-13. Question: What internal procurement, legal, or security steps should we plan for?
-14. Question: What typically slows down or delays the purchasing process?
+13. What internal procurement, legal, or security steps should we plan for?
+14. What typically slows down or delays the purchasing process?
 
 Current Environment:
-
-15. Question: What solutions or processes are in place today?
-16. Question: What other solutions are being considered?
-17. Question: What concerns or risks do you see with moving forward?
+15. What solutions or processes are in place today?
+16. What other solutions are being considered?
+17. What concerns or risks do you see with moving forward?
 
 Next Steps:
-
-18. Question: What would make sense as a next step from here?
-19. Question: What additional information would be helpful for your team?
-20. Question: Who should be involved in the next conversation?
+18. What would make sense as a next step from here?
+19. What additional information would be helpful for your team?
+20. Who should be involved in the next conversation?

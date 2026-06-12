@@ -1,0 +1,75 @@
+Mike Hoyman: Alright, am I gonna be the buyer?
+
+Tony Oliveri: I did. Do we start? Ritesh, do we start? Or are we good?
+
+Ritesh Patel: Yep. Yep. Yep, yep.
+
+Tony Oliveri: Yeah. Hey Mike, how's it going buddy? So sorry about canceling on you last week. I was just getting back from vacation, but I do understand that you're looking for a solution to increase productivity for your sales reps. Do we still have 30 minutes today?
+
+Mike Hoyman: We do.
+
+Tony Oliveri: All right, fantastic. Just going over some of the notes here that I got from my business development rep. I know he connected with you and there are some things missing that I'd like to go over. He mentioned that you're looking to have a final solution in place by the end of July. What I'd like to know is, what's driving that urgency to solve this now?
+
+Mike Hoyman: The urgency is, you know, we're not sure that we're gonna make our quota for the year. And I just want to make sure that I'm not losing any sales deals because I don't have visibility into what's going on with my reps' accounts.
+
+Tony Oliveri: Okay, so you lack visibility and you don't know if you're gonna hit quota for the year. You kind of don't know where you stand. So that would answer the two questions of: what happens if the problem's not addressed, and how's the issue impacting the business. Would you agree with that?
+
+Mike Hoyman: Yeah, I mean, I'd like to see 20% growth in my sales number. I've got a $100 million quota and I want to grow 20%.
+
+Tony Oliveri: Okay, fantastic. And how specifically is this impacting revenue or productivity, as an example?
+
+Mike Hoyman: Well, I just have to trust what my reps say. I'm not in a position to challenge them because I don't have total visibility into what's going on in each account. We have our QBRs, but they tell me what I want to hear in those QBRs.
+
+Tony Oliveri: Got it. When you think about the executive sponsor of this project, what specifically would be most important to them?
+
+Mike Hoyman: It's the same goal. If I increase my sales 20%, that's $20 million. That piques his interest too. Even if it was one percent, that would be worth it.
+
+Tony Oliveri: Got it. And who is that individual? Who ultimately approves initiatives like this one?
+
+Mike Hoyman: It's Sergeant Patel, VP of Sales.
+
+Tony Oliveri: Sergeant Patel, got it. And what business or technical requirements are most important in the selected solution?
+
+Mike Hoyman: We want it to be SaaS. It's got to pass our security review. We have to check what kind of AI you're using and if our security will allow that type of language model.
+
+Tony Oliveri: Okay, got it. Understanding you want to make a decision by the end of July – today's June 12th – if I were standing in front of you with a whiteboard, what are all the decisions that would lead to a final decision between now and then? What steps would be involved and who would be involved?
+
+Mike Hoyman: We have to do an RFP so it's fair. Then I'd like to do a demo and proof of concept. If you win, legal would have to review your contracts and MSA terms. Typical standard process. And what about the paper process? You know, procurement, legal, security – all the typical stuff. And what typically delays the purchasing process sometimes?
+
+Tony Oliveri: What typically delays it?
+
+Mike Hoyman: Depends on the price, but I've seen your price – $30 a year per user. I could technically expense this and nobody would ever know, so I don't really think there's any delay.
+
+Tony Oliveri: Oh, that's the answer. Okay, next one. Are you the person most motivated to solve this? Is it you, your reps, or who?
+
+Mike Hoyman: It's me. My reps – they're not gonna like it because they'll think Big Brother is watching over their heads. But I think once they see they get assistance producing QBRs, they'll learn to like it. But yeah, this is just me.
+
+Tony Oliveri: Got it. Could you share a little about your current environment? What solutions do you have in place today, and what else are you considering besides 360 Pipe?
+
+Mike Hoyman: We use Salesforce for our CRM, and we're a Microsoft shop. So Power BI for all our reporting.
+
+Tony Oliveri: And are you considering anyone else besides 360 Pipe? My BDR mentioned Clari. Is doing nothing an option?
+
+Mike Hoyman: Well, Clari's definitely an option. And so is doing nothing – once we see the solution, we may not like it.
+
+Tony Oliveri: Got it, okay. Perfect.
+
+Ritesh Patel: You can start, Tony.
+
+Tony Oliveri: So, alright. Well, appreciate that, Mike. Understanding that the next step from what you shared was a demo, obviously. And then after that, you're gonna share an RFP. So for the demo, who would be involved? Would that just be you, or would other people join the meeting?
+
+Mike Hoyman: It'll be me, myself, and my big bat, Tom Jones. I'm gonna invite him to give his opinion.
+
+Tony Oliveri: Oh, I think I saw him on your website – on LinkedIn. Sorry. So he's a CRO, right?
+
+Mike Hoyman: No, the CRO is Stacy Jones. Tom Jones is my big bad sales rep. He brings in all my whales. Alright, can we pop up in calendars real quick? Just take a look at what date and time will work for that next meeting. I have availability Monday and Tuesday between 8 and 12 Pacific. What would work for you?
+
+Tony Oliveri: Eight o'clock is fine.
+
+Mike Hoyman: Okay, and I noticed you're in New York, so is 8 o'clock Pacific okay, or what time zone are you looking at?
+
+Tony Oliveri: Actually, we built this in AI. It should be picking this up, so we don't need to ask that question. Did we get that, Bill? Ritesh, keep going.
+
+Mike Hoyman: Okay, all right, fantastic. So 8am on Monday, we'll do the demo. Your big bat will be there and be ready to be impressed, right? Thank you. Talk to you Monday.
+
+Ritesh Patel: Okay.
